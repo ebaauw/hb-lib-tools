@@ -1,8 +1,8 @@
 <span align="center">
 
 # hb-lib-tools
-[![Downloads](https://img.shields.io/npm/dt/homebridge-lib-tools.svg)](https://www.npmjs.com/package/homebridge-lib-tools)
-[![Version](https://img.shields.io/npm/v/homebridge-lib-tools.svg)](https://www.npmjs.com/package/homebridge-lib-tools)
+[![Downloads](https://img.shields.io/npm/dt/hb-lib-tools.svg)](https://www.npmjs.com/package/hb-lib-tools)
+[![Version](https://img.shields.io/npm/v/hb-lib-tools.svg)](https://www.npmjs.com/package/hb-lib-tools)
 [![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg)](https://standardjs.com)
 
 </span>
