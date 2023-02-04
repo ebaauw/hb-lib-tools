@@ -1,0 +1,34 @@
+{
+  "name": "hb-lib-tools",
+  "description": "homebridge-lib Command-Line Tools`",
+  "author": "Erik Baauw",
+  "license": "Apache-2.0",
+  "version": "0.0.0",
+  "files": [
+    "cli"
+  ],
+  "bin": {
+    "hap": "cli/hap.js",
+    "json": "cli/json.js",
+    "sysinfo": "cli/sysinfo.js",
+    "upnp": "cli/upnp.js"
+  },
+  "engines": {
+    "node": "^18.14.0"
+  },
+  "dependencies": {
+    "homebridge-lib": "^6.3.7"
+  },
+  "scripts": {
+    "prepare": "standard",
+    "test": "standard"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ebaauw/hb-lib-tools.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ebaauw/homebridge-lib/issues"
+  },
+  "homepage": "https://github.com/ebaauw/hb-lib-tools#readme"
+}
