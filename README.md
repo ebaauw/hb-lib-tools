@@ -7,7 +7,7 @@
 
 </span>
 
-## `homebridge-lib` Command-Line Tools
+## `homebridge-lib` Tools
 Copyright © 2018-2023 Erik Baauw. All rights reserved.
 
 This repository provides a standalone installation of the command-line tools from [homebridge-lib](https://github.com/ebaauw/homebridge-lib):
@@ -23,5 +23,5 @@ Each command-line tool takes a `-h` or `--help` argument to provide a brief over
 
 ### Installation
 ```
-$ sudo npm -g i homebridge-lib-tools
+$ sudo npm -g i hb-lib-tools
 ```

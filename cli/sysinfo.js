@@ -7,6 +7,6 @@
 
 'use strict'
 
-const { SysinfoTool } = require('homebridge-lib')
+const { SysinfoTool } = require('../index')
 
 new SysinfoTool().main()

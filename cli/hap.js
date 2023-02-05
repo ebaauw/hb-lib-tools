@@ -7,6 +7,6 @@
 
 'use strict'
 
-const { HapTool } = require('homebridge-lib')
+const { HapTool } = require('../index')
 
 new HapTool().main()

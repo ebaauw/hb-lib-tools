@@ -7,6 +7,6 @@
 
 'use strict'
 
-const { JsonTool } = require('homebridge-lib')
+const { JsonTool } = require('../index')
 
 new JsonTool().main()

@@ -7,6 +7,6 @@
 
 'use strict'
 
-const { UpnpTool } = require('homebridge-lib')
+const { UpnpTool } = require('../index')
 
 new UpnpTool().main()
