@@ -194,7 +194,7 @@ class hbLibTools {
       }
       let message = ''
       const a = /[A-Z0-9_-]*:( .*),/.exec(e.message)
-      if (a != null && a[1] != null) {
+      if (a?.[1] != null) {
         message = a[1]
       }
       if (label != null && message != null) {
