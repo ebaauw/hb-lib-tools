@@ -5,11 +5,10 @@
 
 /* global describe, it */
 
-const homebridgeLib = require('../index')
+const { OptionParser } = require('../index')
 const assert = require('assert')
 const util = require('util')
 
-const OptionParser = homebridgeLib.OptionParser
 const UserInputError = OptionParser.UserInputError
 
 // ===== TEST SETUP ============================================================
