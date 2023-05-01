@@ -5,12 +5,7 @@
 
 'use strict'
 
-const chalk = require('chalk')
 const net = require('net')
-
-// Force colors when output is re-directed.
-chalk.enabled = true
-chalk.level = 1
 
 // Check of e is a JavaScript runtime error.
 function isJavaScriptError (e) {
@@ -169,7 +164,7 @@ class hbLibTools {
       if (useChalk) {
         const lines = e.stack.split('\n')
         const firstLine = lines.shift()
-        return firstLine + '\n' + chalk.reset.grey(lines.join('\n'))
+        return firstLine + '\n' + hbLibTools.chalk.reset.grey(lines.join('\n'))
       }
       return e.stack
     }
@@ -221,7 +216,13 @@ class hbLibTools {
     * so plugins don't have to list this as a separate dependency.
     * @memberof module:hbLibTools
     */
-  static get chalk () { return require('chalk') }
+  static get chalk () {
+    const chalk = require('chalk')
+    // Force colors when output is re-directed.
+    chalk.enabled = true
+    chalk.level = 1
+    return chalk
+  }
 
   /** Return the [`semver`](https://github.com/npm/node-semver) module,
     * so plugins don't have to list this as a separate dependency.
