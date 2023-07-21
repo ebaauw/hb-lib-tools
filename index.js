@@ -224,6 +224,17 @@ class hbLibTools {
     return chalk
   }
 
+  /** Return the recommended version of NodeJS from package.json.
+    * This is the version used to develop and test the software,
+    * typically the latest LTS version.
+    * @param {string} packageJson - The contents of package.json
+    * #return {string} - The recommended version.
+    * @memberof module:hbLibTools
+    */
+  static recommendedNodeVersion (packageJson) {
+    return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
+  }
+
   /** Return the [`semver`](https://github.com/npm/node-semver) module,
     * so plugins don't have to list this as a separate dependency.
     * @memberof module:hbLibTools
