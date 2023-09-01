@@ -204,12 +204,17 @@ class hbLibTools {
 
   /** Convert integer to hex string.
     * @param {integer} i - The integer.
-    * @param {integer} [length=4] - The number of digits in the hex string.
+    * @param {?integer} length - The (minimum) number of digits in the hex string.
+    * The hex string is left padded with `0`s, to reach the length.
     * @returns {string} - The hex string.
     * @memberof module:hbLibTools
     */
-  static toHexString (i, length = 4) {
-    return (zeroes + i.toString(16)).slice(-length).toUpperCase()
+  static toHexString (i, length) {
+    const s = i.toString(16).toUpperCase()
+    if (length == null || s.length >= length) {
+      return s
+    }
+    return (zeroes + s).slice(-length)
   }
 
   /** Return the [`chalk`](https://github.com/chalk/chalk) module,
