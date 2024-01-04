@@ -3,7 +3,7 @@
 // hap.js
 //
 // Logger for HomeKit accessory announcements.
-// Copyright © 2018-2023 Erik Baauw. All rights reserved.
+// Copyright © 2018-2024 Erik Baauw. All rights reserved.
 
 'use strict'
 
