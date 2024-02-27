@@ -233,7 +233,7 @@ class hbLibTools {
     * This is the version used to develop and test the software,
     * typically the latest LTS version.
     * @param {string} packageJson - The contents of package.json
-    * #return {string} - The recommended version.
+    * @returns {string} - The recommended version of NodeJS.
     * @memberof module:hbLibTools
     */
   static recommendedNodeVersion (packageJson) {
