@@ -20,7 +20,7 @@
     "node": "20.11.1||^20||^18"
   },
   "dependencies": {
-    "bonjour-hap": "^3.6.5",
+    "bonjour-hap": "^3.7.1",
     "chalk": "^4.1.2",
     "semver": "^7.6.0"
   },
