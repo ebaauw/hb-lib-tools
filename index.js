@@ -3,29 +3,12 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2024 Erik Baauw. All rights reserved.
 
-'use strict'
+import net from 'node:net'
 
-const net = require('net')
+import bonjour from 'bonjour-hap'
+import chalk from 'chalk'
 
-// Check of e is a JavaScript runtime error.
-function isJavaScriptError (e) {
-  return [
-    'AssertionError',
-    'EvalError',
-    'RangeError',
-    'ReferenceError',
-    'SyntaxError',
-    'TypeError',
-    'URIError'
-  ].includes(e.constructor.name)
-}
-
-// Check if e is a NodeJs runtime error.
-function isNodejsError (e) {
-  return typeof e.code === 'string' && e.code.startsWith('ERR_')
-}
-
-const zeroes = '00000000000000000000000000000000'
+import { OptionParser } from './lib/OptionParser.js'
 
 /** Library for Homebridge plugins.
   * see the {@tutorial hbLibTools} tutorial.
@@ -50,7 +33,7 @@ const zeroes = '00000000000000000000000000000000'
   * To access the classes provided by Homebridge Lib from your module,
   * simply load it by:
   * ```javascript
-  * const hbLibTools = require('hb-lib-tools')
+  * import hbLibTools from 'hb-lib-tools'
   * ```
   *
   * Note that each class provided by Homebridge Lib is implemented as a
@@ -60,191 +43,214 @@ const zeroes = '00000000000000000000000000000000'
   *
   * @module hbLibTools
   */
-class hbLibTools {
-  /** Return the `Bonjour` class from [`bonjour-hap`](https://github.com/homebridge/bonjour),
-    * so plugins don't have to list this as a separate dependency.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get Bonjour () { return require('bonjour-hap') }
 
-  /** Colour conversions.
-    * <br>See {@link Colour}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get Colour () { return require('./lib/Colour') }
+/** Return the `Bonjour` class from [`bonjour-hap`](https://github.com/homebridge/bonjour),
+  * so plugins don't have to list this as a separate dependency.
+  * @name Bonjour
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export const Bonjour = bonjour
 
-  /** Parser and validator for command-line arguments.
-    * <br>See {@link CommandLineParser}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get CommandLineParser () { return require('./lib/CommandLineParser') }
+/** Colour conversions.
+  * <br>See {@link Colour}.
+  * @name Colour
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { Colour } from './lib/Colour.js'
 
-  /** Command-line tool.
-    * <br>See {@link CommandLineTool}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get CommandLineTool () { return require('./lib/CommandLineTool') }
+/** Parser and validator for command-line arguments.
+  * <br>See {@link CommandLineParser}.
+  * @name CommandLineParser
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { CommandLineParser } from './lib/CommandLineParser.js'
 
-  /** HTTP client.
-    * <br>See {@link HttpClient}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get HttpClient () { return require('./lib/HttpClient') }
+/** Command-line tool.
+  * <br>See {@link CommandLineTool}.
+  * @name CommandLineTool
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { CommandLineTool } from './lib/CommandLineTool.js'
 
-  /** JSON formatter.
-    * <br>See {@link JsonFormatter}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get JsonFormatter () { return require('./lib/JsonFormatter') }
+/** HTTP client.
+  * <br>See {@link HttpClient}.
+  * @name HttpClient
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { HttpClient } from './lib/HttpClient.js'
 
-  /** Parser and validator for options and other parameters.
-    * <br>See {@link OptionParser}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get OptionParser () { return require('./lib/OptionParser') }
+/** JSON formatter.
+  * <br>See {@link JsonFormatter}.
+  * @name JsonFormatter
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { JsonFormatter } from './lib/JsonFormatter.js'
 
-  /** System information.
-    * <br>See {@link SystemInfo}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get SystemInfo () { return require('./lib/SystemInfo') }
+/** Parser and validator for options and other parameters.
+  * <br>See {@link OptionParser}.
+  * @name OptionParser
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { OptionParser } from './lib/OptionParser.js'
 
-  /** Universal Plug and Play client.
-    * <br>See {@link UpnpClient}.
-    * @type {Class}
-    * @memberof module:hbLibTools
-    */
-  static get UpnpClient () { return require('./lib/UpnpClient') }
+/** System information.
+  * <br>See {@link SystemInfo}.
+  * @name SystemInfo
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { SystemInfo } from './lib/SystemInfo.js'
 
-  // Command-line tools.
-  static get HapTool () { return require('./lib/HapTool') }
-  static get JsonTool () { return require('./lib/JsonTool') }
-  static get SysinfoTool () { return require('./lib/SysinfoTool') }
-  static get UpnpTool () { return require('./lib/UpnpTool') }
+/** Universal Plug and Play client.
+  * <br>See {@link UpnpClient}.
+  * @name UpnpClient
+  * @type {Class}
+  * @memberof module:hbLibTools
+  */
+export { UpnpClient } from './lib/UpnpClient.js'
 
-  /** Resolve after given period, delaying execution.
-    *
-    * E.g. to delay execution for 1.5 seconds, issue:
-    * ```javascript
-    *   await hbLibTools.timeout(1500)
-    * ```
-    *
-    * @param {integer} msec - Period (in msec) to wait.
-    * @throws {TypeError} On invalid parameter type.
-    * @throws {RangeError} On invalid parameter value.
-    * @memberof module:hbLibTools
-    */
-  static async timeout (msec) {
-    msec = hbLibTools.OptionParser.toInt('msec', msec, 0)
-    return new Promise((resolve, reject) => {
-      setTimeout(() => { resolve() }, msec)
-    })
-  }
+export { HapTool } from './lib/HapTool.js'
+export { JsonTool } from './lib/JsonTool.js'
+export { SysinfoTool } from './lib/SysinfoTool.js'
+export { UpnpTool } from './lib/UpnpTool.js'
 
-  /** Convert Error to string.
-    *
-    * Include the stack trace only for programming errors (JavaScript and NodeJS
-    * runtime errors).
-    * Translate system errors into more readable messages.
-    * @param {Error} e - The error.
-    * @param {boolean} [useChalk=false] - Use chalk to grey out the stack trace.
-    * @returns {string} - The error as string.
-    * @memberof module:hbLibTools
-    */
-  static formatError (e, useChalk = false) {
-    if (isJavaScriptError(e) || isNodejsError(e)) {
-      if (useChalk) {
-        const lines = e.stack.split('\n')
-        const firstLine = lines.shift()
-        return firstLine + '\n' + hbLibTools.chalk.reset.grey(lines.join('\n'))
-      }
-      return e.stack
-    }
-    if (e.errno != null) { // SystemError
-      let label = ''
-      if (e.path != null) {
-        label = e.path
-      } else if (e.dest != null) {
-        label = e.dest
-      } else if (e.address != null) {
-        label = e.address
-        if (net.isIPv6(label)) {
-          label = '[' + label + ']'
-        }
-        if (e.port != null) {
-          label += ':' + e.port
-        }
-      } else if (e.port != null) {
-        label = '' + e.port
-      } else if (e.hostname != null) {
-        label = e.hostname
-      }
-      let message = ''
-      const a = /[A-Z0-9_-]*:( .*),/.exec(e.message)
-      if (a?.[1] != null) {
-        message = a[1]
-      }
-      if (label != null && message != null) {
-        return `${label}: cannot ${e.syscall}: ${e.code}${message}`
-      }
-    }
-    if (e.cmd != null && e.message.slice(-1) === '\n') { // exec error
-      return e.message.slice(0, e.message.length - 1)
-    }
-    return e.message
-  }
+/** Return the [`chalk`](https://github.com/chalk/chalk) module,
+  * so plugins don't have to list this as a separate dependency.
+  * @name chalk
+  * @memberof module:hbLibTools
+  */
+export { chalk }
 
-  /** Convert integer to hex string.
-    * @param {integer} i - The integer.
-    * @param {?integer} length - The (minimum) number of digits in the hex string.
-    * The hex string is left padded with `0`s, to reach the length.
-    * @returns {string} - The hex string.
-    * @memberof module:hbLibTools
-    */
-  static toHexString (i, length) {
-    const s = i.toString(16).toUpperCase()
-    if (length == null || s.length >= length) {
-      return s
-    }
-    return (zeroes + s).slice(-length)
-  }
+/** Return the [`semver`](https://github.com/npm/node-semver) module,
+  * so plugins don't have to list this as a separate dependency.
+  * @name semver
+  * @memberof module:hbLibTools
+  */
+export * as semver from 'semver'
 
-  /** Return the [`chalk`](https://github.com/chalk/chalk) module,
-    * so plugins don't have to list this as a separate dependency.
-    * @memberof module:hbLibTools
-    */
-  static get chalk () {
-    const chalk = require('chalk')
-    // Force colors when output is re-directed.
-    chalk.enabled = true
-    chalk.level = 1
-    return chalk
-  }
-
-  /** Return the recommended version of NodeJS from package.json.
-    * This is the version used to develop and test the software,
-    * typically the latest LTS version.
-    * @param {string} packageJson - The contents of package.json
-    * @returns {string} - The recommended version of NodeJS.
-    * @memberof module:hbLibTools
-    */
-  static recommendedNodeVersion (packageJson) {
-    return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
-  }
-
-  /** Return the [`semver`](https://github.com/npm/node-semver) module,
-    * so plugins don't have to list this as a separate dependency.
-    * @memberof module:hbLibTools
-    */
-  static get semver () { return require('semver') }
+// Check of e is a JavaScript runtime error.
+function isJavaScriptError (e) {
+  return [
+    'AssertionError',
+    'EvalError',
+    'RangeError',
+    'ReferenceError',
+    'SyntaxError',
+    'TypeError',
+    'URIError'
+  ].includes(e.constructor.name)
 }
 
-module.exports = hbLibTools
+// Check if e is a NodeJs runtime error.
+function isNodejsError (e) {
+  return typeof e.code === 'string' && e.code.startsWith('ERR_')
+}
+
+/** Convert Error to string.
+  *
+  * Include the stack trace only for programming errors (JavaScript and NodeJS
+  * runtime errors).
+  * Translate system errors into more readable messages.
+  * @param {Error} e - The error.
+  * @param {boolean} [useChalk=false] - Use chalk to grey out the stack trace.
+  * @returns {string} - The error as string.
+  * @memberof module:hbLibTools
+  */
+function formatError (e, useChalk = false) {
+  if (isJavaScriptError(e) || isNodejsError(e)) {
+    if (useChalk) {
+      const lines = e.stack.split('\n')
+      const firstLine = lines.shift()
+      return firstLine + '\n' + chalk.reset.grey(lines.join('\n'))
+    }
+    return e.stack
+  }
+  if (e.errno != null) { // SystemError
+    let label = ''
+    if (e.path != null) {
+      label = e.path
+    } else if (e.dest != null) {
+      label = e.dest
+    } else if (e.address != null) {
+      label = e.address
+      if (net.isIPv6(label)) {
+        label = '[' + label + ']'
+      }
+      if (e.port != null) {
+        label += ':' + e.port
+      }
+    } else if (e.port != null) {
+      label = '' + e.port
+    } else if (e.hostname != null) {
+      label = e.hostname
+    }
+    let message = ''
+    const a = /[A-Z0-9_-]*:( .*),/.exec(e.message)
+    if (a?.[1] != null) {
+      message = a[1]
+    }
+    if (label != null && message != null) {
+      return `${label}: cannot ${e.syscall}: ${e.code}${message}`
+    }
+  }
+  if (e.cmd != null && e.message.slice(-1) === '\n') { // exec error
+    return e.message.slice(0, e.message.length - 1)
+  }
+  return e.message
+}
+
+/** Return the recommended version of NodeJS from package.json.
+  * This is the version used to develop and test the software,
+  * typically the latest LTS version.
+  * @param {string} packageJson - The contents of package.json
+  * @returns {string} - The recommended version of NodeJS.
+  * @memberof module:hbLibTools
+  */
+function recommendedNodeVersion (packageJson) {
+  return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
+}
+
+/** Resolve after given period, delaying execution.
+  *
+  * E.g. to delay execution for 1.5 seconds, issue:
+  * ```javascript
+  *   await hbLibTools.timeout(1500)
+  * ```
+  *
+  * @param {integer} msec - Period (in msec) to wait.
+  * @throws {TypeError} On invalid parameter type.
+  * @throws {RangeError} On invalid parameter value.
+  * @memberof module:hbLibTools
+  */
+async function timeout (msec) {
+  msec = OptionParser.toInt('msec', msec, 0)
+  return new Promise((resolve, reject) => {
+    setTimeout(() => { resolve() }, msec)
+  })
+}
+
+const zeroes = '00000000000000000000000000000000'
+
+/** Convert integer to hex string.
+  * @param {integer} i - The integer.
+  * @param {?integer} length - The (minimum) number of digits in the hex string.
+  * The hex string is left padded with `0`s, to reach the length.
+  * @returns {string} - The hex string.
+  * @memberof module:hbLibTools
+  */
+function toHexString (i, length) {
+  const s = i.toString(16).toUpperCase()
+  if (length == null || s.length >= length) {
+    return s
+  }
+  return (zeroes + s).slice(-length)
+}
+
+export { formatError, recommendedNodeVersion, timeout, toHexString }

@@ -5,8 +5,6 @@
 // UPnP tool.
 // Copyright © 2018-2024 Erik Baauw. All rights reserved.
 
-'use strict'
-
-const { UpnpTool } = require('../index')
+import { UpnpTool } from '../index.js'
 
 new UpnpTool().main()

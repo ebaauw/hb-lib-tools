@@ -5,11 +5,12 @@
 
 /* global describe, it */
 
-const { OptionParser } = require('../index')
-const assert = require('assert')
-const util = require('util')
+import assert from 'node:assert'
+import util from 'node:util'
 
-const UserInputError = OptionParser.UserInputError
+import { OptionParser } from '../index.js'
+
+const { UserInputError } = OptionParser
 
 // ===== TEST SETUP ============================================================
 
