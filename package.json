@@ -6,6 +6,10 @@
   "version": "2.0.0-0",
   "type": "module",
   "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./*": "./lib/*.js"
+  },
   "files": [
     "index.js",
     "lib",

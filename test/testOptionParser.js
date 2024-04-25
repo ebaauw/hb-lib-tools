@@ -8,7 +8,7 @@
 import assert from 'node:assert'
 import util from 'node:util'
 
-import { OptionParser } from '../index.js'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 const { UserInputError } = OptionParser
 

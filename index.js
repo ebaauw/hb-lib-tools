@@ -5,10 +5,8 @@
 
 import net from 'node:net'
 
-import bonjour from 'bonjour-hap'
-import chalk from 'chalk'
-
-import { OptionParser } from './lib/OptionParser.js'
+import { chalk } from 'hb-lib-tools/chalk'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Library for Homebridge plugins.
   * see the {@tutorial hbLibTools} tutorial.
@@ -43,97 +41,6 @@ import { OptionParser } from './lib/OptionParser.js'
   *
   * @module hbLibTools
   */
-
-/** Return the `Bonjour` class from [`bonjour-hap`](https://github.com/homebridge/bonjour),
-  * so plugins don't have to list this as a separate dependency.
-  * @name Bonjour
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export const Bonjour = bonjour
-
-/** Colour conversions.
-  * <br>See {@link Colour}.
-  * @name Colour
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { Colour } from './lib/Colour.js'
-
-/** Parser and validator for command-line arguments.
-  * <br>See {@link CommandLineParser}.
-  * @name CommandLineParser
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { CommandLineParser } from './lib/CommandLineParser.js'
-
-/** Command-line tool.
-  * <br>See {@link CommandLineTool}.
-  * @name CommandLineTool
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { CommandLineTool } from './lib/CommandLineTool.js'
-
-/** HTTP client.
-  * <br>See {@link HttpClient}.
-  * @name HttpClient
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { HttpClient } from './lib/HttpClient.js'
-
-/** JSON formatter.
-  * <br>See {@link JsonFormatter}.
-  * @name JsonFormatter
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { JsonFormatter } from './lib/JsonFormatter.js'
-
-/** Parser and validator for options and other parameters.
-  * <br>See {@link OptionParser}.
-  * @name OptionParser
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { OptionParser } from './lib/OptionParser.js'
-
-/** System information.
-  * <br>See {@link SystemInfo}.
-  * @name SystemInfo
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { SystemInfo } from './lib/SystemInfo.js'
-
-/** Universal Plug and Play client.
-  * <br>See {@link UpnpClient}.
-  * @name UpnpClient
-  * @type {Class}
-  * @memberof module:hbLibTools
-  */
-export { UpnpClient } from './lib/UpnpClient.js'
-
-export { HapTool } from './lib/HapTool.js'
-export { JsonTool } from './lib/JsonTool.js'
-export { SysinfoTool } from './lib/SysinfoTool.js'
-export { UpnpTool } from './lib/UpnpTool.js'
-
-/** Return the [`chalk`](https://github.com/chalk/chalk) module,
-  * so plugins don't have to list this as a separate dependency.
-  * @name chalk
-  * @memberof module:hbLibTools
-  */
-export { chalk }
-
-/** Return the [`semver`](https://github.com/npm/node-semver) module,
-  * so plugins don't have to list this as a separate dependency.
-  * @name semver
-  * @memberof module:hbLibTools
-  */
-export * as semver from 'semver'
 
 // Check of e is a JavaScript runtime error.
 function isJavaScriptError (e) {
