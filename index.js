@@ -129,7 +129,7 @@ function recommendedNodeVersion (packageJson) {
   * E.g. to delay execution for 1.5 seconds, issue:
   * ```javascript
   *   import { timeout } from 'hb-lib-tools'
-  * 
+  *
   *   await timeout(1500)
   * ```
   *
