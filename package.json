@@ -3,7 +3,7 @@
   "description": "homebridge-lib Command-Line Tools`",
   "author": "Erik Baauw",
   "license": "Apache-2.0",
-  "version": "2.0.0-1",
+  "version": "2.0.0-2",
   "type": "module",
   "main": "index.js",
   "exports": {
