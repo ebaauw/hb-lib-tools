@@ -9,7 +9,7 @@ import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Library for Homebridge plugins.
-  * see the {@tutorial hbLibTools} tutorial.
+  * see the {@tutorial hb-lib-tools} tutorial.
   *
   * Homebridge Lib provides:
   * - A base class to building command-line tools:
@@ -31,7 +31,7 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * To access the classes provided by Homebridge Lib from your module,
   * simply load it by:
   * ```javascript
-  * import hbLibTools from 'hb-lib-tools'
+  * import hb-lib-tools from 'hb-lib-tools'
   * ```
   *
   * Note that each class provided by Homebridge Lib is implemented as a
@@ -39,7 +39,7 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * Due to the way NodeJS deals with circular module dependencies, these modules
   * might not yet be initialised while your module is loading.
   *
-  * @module hbLibTools
+  * @module hb-lib-tools
   */
 
 // Check of e is a JavaScript runtime error.
@@ -68,7 +68,7 @@ function isNodejsError (e) {
   * @param {Error} e - The error.
   * @param {boolean} [useChalk=false] - Use chalk to grey out the stack trace.
   * @returns {string} - The error as string.
-  * @memberof module:hbLibTools
+  * @memberof module:hb-lib-tools
   */
 function formatError (e, useChalk = false) {
   if (isJavaScriptError(e) || isNodejsError(e)) {
@@ -118,7 +118,7 @@ function formatError (e, useChalk = false) {
   * typically the latest LTS version.
   * @param {string} packageJson - The contents of package.json
   * @returns {string} - The recommended version of NodeJS.
-  * @memberof module:hbLibTools
+  * @memberof module:hb-lib-tools
   */
 function recommendedNodeVersion (packageJson) {
   return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
@@ -128,13 +128,15 @@ function recommendedNodeVersion (packageJson) {
   *
   * E.g. to delay execution for 1.5 seconds, issue:
   * ```javascript
-  *   await hbLibTools.timeout(1500)
+  *   import { timeout } from 'hb-lib-tools'
+  * 
+  *   await timeout(1500)
   * ```
   *
   * @param {integer} msec - Period (in msec) to wait.
   * @throws {TypeError} On invalid parameter type.
   * @throws {RangeError} On invalid parameter value.
-  * @memberof module:hbLibTools
+  * @memberof module:hb-lib-tools
   */
 async function timeout (msec) {
   msec = OptionParser.toInt('msec', msec, 0)
@@ -150,7 +152,7 @@ const zeroes = '00000000000000000000000000000000'
   * @param {?integer} length - The (minimum) number of digits in the hex string.
   * The hex string is left padded with `0`s, to reach the length.
   * @returns {string} - The hex string.
-  * @memberof module:hbLibTools
+  * @memberof module:hb-lib-tools
   */
 function toHexString (i, length) {
   const s = i.toString(16).toUpperCase()
