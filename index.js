@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2024 Erik Baauw. All rights reserved.
 
-import net from 'node:net'
+import { isIPv6 } from 'node:net'
 
 import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
@@ -87,7 +87,7 @@ function formatError (e, useChalk = false) {
       label = e.dest
     } else if (e.address != null) {
       label = e.address
-      if (net.isIPv6(label)) {
+      if (isIPv6(label)) {
         label = '[' + label + ']'
       }
       if (e.port != null) {
