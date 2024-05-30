@@ -22,7 +22,7 @@
     "upnp": "cli/upnp.js"
   },
   "engines": {
-    "node": "20.13.1||^20||^18"
+    "node": "20.14.0||^20||^18"
   },
   "dependencies": {
     "bonjour-hap": "^3.7.2",
