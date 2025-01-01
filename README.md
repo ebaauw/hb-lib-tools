@@ -8,7 +8,7 @@
 </span>
 
 ## `homebridge-lib` Tools
-Copyright © 2018-2024 Erik Baauw. All rights reserved.
+Copyright © 2018-2025 Erik Baauw. All rights reserved.
 
 This repository provides a standalone installation of the command-line tools from [homebridge-lib](https://github.com/ebaauw/homebridge-lib):
 
