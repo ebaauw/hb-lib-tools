@@ -147,14 +147,17 @@ async function timeout (msec) {
 
 const zeroes = '00000000000000000000000000000000'
 
-/** Convert integer to hex string.
-  * @param {integer} i - The integer.
+/** Convert integer or Buffer to hex string.
+  * @param {integer|Buffer} i - The integer or Buffer.
   * @param {?integer} length - The (minimum) number of digits in the hex string.
   * The hex string is left padded with `0`s, to reach the length.
   * @returns {string} - The hex string.
   * @memberof module:hb-lib-tools
   */
 function toHexString (i, length) {
+  if (Buffer.isBuffer(i)) {
+    return i.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
+  }
   const s = i.toString(16).toUpperCase()
   if (length == null || s.length >= length) {
     return s
