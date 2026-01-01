@@ -1,4 +1,4 @@
-Copyright © 2017-2025 Erik Baauw. All rights reserved.
+Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
 ## Introduction
 This repository contains command-line tools and supporting utility classes for 
