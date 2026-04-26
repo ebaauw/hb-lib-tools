@@ -26,6 +26,7 @@ Class                      | Description
 {@link CommandLineTool}    | Command-line tool.
 {@link HttpClient}         | HTTP client.
 {@link JsonFormatter}      | JSON formatter.
+{@link MdnsClient}         | Multicast DNS (Bonjour) client.
 {@link OptionParser}       | Parser and validator for options and other parameters.
 {@link SystemInfo}         | System information.
 {@link UpnpClient}         | Universal Plug and Play client.
