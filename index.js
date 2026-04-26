@@ -9,9 +9,12 @@ import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Library for Homebridge plugins.
-  * see the {@tutorial hb-lib-tools} tutorial.
+  * See the {@tutorial hb-lib-tools} tutorial.
   *
-  * Homebridge Lib provides:
+  * This repository contains command-line tools and supporting utility classes for
+  * [homebridge-lib](https://github.com/ebaauw/homebridge-lib), a library for Homebridge plugins.
+  *
+  * This repository provides:
   * - A base class to building command-line tools:
   * {@link CommandLineTool}.
   * - A series of helper classes for building homebridge plugins (of any type)
@@ -20,6 +23,7 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * {@link CommandLineParser},
   * {@link HttpClient},
   * {@link JsonFormatter},
+  * {@link MdsnClient},
   * {@link OptionParser},
   * {@link SystemInfo}, and
   * {@link UpnpClient}.
@@ -28,16 +32,18 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * For more information on these, start the tool from the command-line
   * with `-h` or `--help`.
   *
-  * To access the classes provided by Homebridge Lib from your module,
-  * simply load it by:
+  * To access the static methods provided by this library, simply import them by:
   * ```javascript
-  * import hb-lib-tools from 'hb-lib-tools'
+  * import { timeout } from 'hb-lib-tools'
   * ```
-  *
-  * Note that each class provided by Homebridge Lib is implemented as a
-  * separate Javascript module, that is loaded lazily on first use.
-  * Due to the way NodeJS deals with circular module dependencies, these modules
-  * might not yet be initialised while your module is loading.
+  * The helper classes are provided as separate imports, to enable lazy loading.
+  * ```javascript
+  * import { HttpClient} from 'hb-lib-tools/HttpClient'
+  * ```
+  * or
+  * ```
+  * const { HttpClient } = await import('hb-lib-tools/HttpClient')
+  * ```
   *
   * @module hb-lib-tools
   */
