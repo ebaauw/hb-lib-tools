@@ -4,6 +4,7 @@
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
 import { isIPv6 } from 'node:net'
+import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
@@ -104,13 +105,9 @@ function formatError (e, useChalk = false) {
     } else if (e.hostname != null) {
       label = e.hostname
     }
-    let message = ''
-    const a = /[A-Z0-9_-]*:( .*),/.exec(e.message)
-    if (a?.[1] != null) {
-      message = a[1]
-    }
+    const message = getSystemErrorMessage(e.errno)
     if (label != null && message != null) {
-      return `${label}: cannot ${e.syscall}: ${e.code}${message}`
+      return `${label}: cannot ${e.syscall}: ${e.code}: ${message}`
     }
   }
   if (e.cmd != null && e.message.slice(-1) === '\n') { // exec error
