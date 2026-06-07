@@ -25,12 +25,12 @@
     "upnp": "cli/upnp.js"
   },
   "engines": {
-    "node": "24.15.0||^24||^22"
+    "node": "24.16.0||^24||^22"
   },
   "dependencies": {
-    "bonjour-hap": "^3.10.2",
+    "bonjour-hap": "^3.10.3",
     "chalk": "^5.6.2",
-    "semver": "^7.8.0"
+    "semver": "^7.8.2"
   },
   "scripts": {
     "prepare": "standard && mocha && rm -rf out && jsdoc -c jsdoc.json",
