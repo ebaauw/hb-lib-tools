@@ -82,7 +82,7 @@ function formatError (e, useChalk = false) {
     if (useChalk) {
       const lines = e.stack.split('\n')
       const firstLine = lines.shift()
-      return firstLine + '\n' + chalk.reset.grey(lines.join('\n'))
+      return firstLine + '\n' + chalk.reset.gray(lines.join('\n'))
     }
     return e.stack
   }
