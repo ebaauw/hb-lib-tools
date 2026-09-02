@@ -48,7 +48,7 @@ const patterns = {
   intOct: /^\s*([+-]?)(?:0[oO])([0-8]+)\s*$/,
   intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/,
   ipv4: /^(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])$/,
-  number: /^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$/,
+  number: /^\s*[+-]?((?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/,
   mac: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
   mac64: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
   uuid: /^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([1-5][0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$/
@@ -191,11 +191,11 @@ class OptionParser extends EventEmitter {
     radix: 10, length: 0, userInput: false
   }) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min != null ? OptionParser.toInt('min', options.min) : Number.MIN_SAFE_INTEGER
-    const max = options.max != null ? OptionParser.toInt('max', options.max) : Number.MAX_SAFE_INTEGER
-    const radix = options.radix != null ? OptionParser.toInt('radix', options.radix, { min: 2, max: 36 }) : 10
-    const length = options.length != null ? OptionParser.toInt('length', options.length, { min: 0, max: 32 }) : 0
-    const userInput = options.userInput ?? false
+    const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : OptionParser.toInt('min', options.min)
+    const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : OptionParser.toInt('max', options.max)
+    const radix = options.radix === undefined ? 10 : OptionParser.toInt('radix', options.radix, { min: 2, max: 36 })
+    const length = options.length === undefined ? 0 : OptionParser.toInt('length', options.length, { min: 0, max: 32 })
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     if (value < 0 && radix !== 10) {
       throw newRangeError(`${key}: not an unsigned integer`, userInput)
@@ -230,9 +230,9 @@ class OptionParser extends EventEmitter {
     min?: number, max?: number, userInput?: boolean
   }) => number = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min != null ? OptionParser.toInt('min', options.min) : -Infinity
-    const max = options.max != null ? OptionParser.toInt('max', options.max) : Infinity
-    const userInput = options.userInput ?? false
+    const min = options.min === undefined ? -Infinity : OptionParser.toNumber('min', options.min)
+    const max = options.max === undefined ? Infinity : OptionParser.toNumber('max', options.max)
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
@@ -240,9 +240,11 @@ class OptionParser extends EventEmitter {
     if (value == null) {
       throw newTypeError(`${key}: missing number value`, userInput)
     }
+    if (typeof value === 'number') {
+      value = '' + value
+    }
     if (typeof value === 'boolean') {
       value = value ? 1 : 0
-    } else if (typeof value === 'number') {
     } else if (typeof value === 'string') {
       if (patterns.number.test(value)) {
         value = parseFloat(value)
@@ -276,19 +278,18 @@ class OptionParser extends EventEmitter {
     min?: number, max?: number, length?: integer, decimals?: integer, userInput?: boolean
   }) => string = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min != null ? OptionParser.toInt('options.min', options.min) : -Infinity
-    const max = options.max != null ? OptionParser.toInt('options.max', options.max) : Infinity
-    const length = options.length != null ? OptionParser.toInt('options.length', options.length, { min: 0, max: 32 }) : 0
-    const decimals = options.decimals != null ? OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 }) : null
-    const userInput = options.userInput ?? false
+    const min = options.min === undefined ? -Infinity : OptionParser.toNumber('min', options.min)
+    const max = options.max === undefined ? Infinity : OptionParser.toNumber('max', options.max)
+    const length = options.length === undefined ? 0 : OptionParser.toInt('options.length', options.length, { min: 0, max: 32 })
+    const decimals = options.decimals === undefined ? null : OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 })
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     value = OptionParser.toNumber(key, value, { min, max, userInput })
-    if (decimals == null) {
-      value = value.toString(10)
-    } else {
+    if (decimals != null) {
       const factor = Math.pow(10, decimals)
-      value = (Math.round(value * factor) / factor).toString(10)
+      value = (Math.round(value * factor) / factor)
     }
+    value = value.toString(10)
     if (value.length > length) {
       return value
     }
@@ -315,8 +316,8 @@ class OptionParser extends EventEmitter {
     nonEmpty?: boolean, userInput?: boolean
   }) => string = (key, value, options = {}) => {
     key === 'key' || OptionParser.toString('key', key, { nonEmpty: true })
-    const nonEmpty = options.nonEmpty ?? false
-    const userInput = options.userInput ?? false
+    const nonEmpty = options.nonEmpty === undefined ? false : OptionParser.toBool('nonEmpty', options.nonEmpty)
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     if (value == null && nonEmpty) {
       throw newTypeError(`${key}: missing string value`, userInput)
@@ -346,7 +347,7 @@ class OptionParser extends EventEmitter {
     userInput?: boolean
   }) => Host = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput ?? false
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     OptionParser.toString(key, value, { nonEmpty: true, userInput })
     const response: Host = { hostname: ''}
@@ -391,7 +392,7 @@ class OptionParser extends EventEmitter {
     userInput?: boolean
   }) => host = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput ?? false
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     const { hostname, port } = OptionParser.toHost(key, value, { userInput })
     return hostname + (port != null ? ':' + port : '')
@@ -412,7 +413,7 @@ class OptionParser extends EventEmitter {
     userInput?: boolean
   }) => path = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput ?? false
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     const path = OptionParser.toString(key, value, { nonEmpty: true, userInput })
     if (path[0] !== '/') {
@@ -439,7 +440,7 @@ class OptionParser extends EventEmitter {
     userInput?: boolean
   }) => any[] = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput ?? false
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     if (value == null) {
       return []
@@ -470,8 +471,8 @@ class OptionParser extends EventEmitter {
     userInput?: boolean
   }) => Record<string, any> = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput ?? false
-
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
+    
     if (value == null) {
       return {}
     }
@@ -545,7 +546,7 @@ class OptionParser extends EventEmitter {
     */
   static toClass: (key: string, value: any, options?: { SuperClass?: new (...args: any) => any }) => any = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const SuperClass: (new (...args: any) => any) | null = options.SuperClass != null ? OptionParser.toClass('SuperClass', options.SuperClass) : null
+    const SuperClass: (new (...args: any) => any) | null = options.SuperClass === undefined ? null : OptionParser.toClass('SuperClass', options.SuperClass)
 
     if (value == null) {
       throw new TypeError(`${key}: missing class value`)
@@ -575,7 +576,7 @@ class OptionParser extends EventEmitter {
     */
   static toInstance: (key: string, value: any, options?: { Class?: new (...args: any) => any }) => any = (key, value, options = {}) => {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const Class: (new (...args: any) => any) | null = options.Class != null ? OptionParser.toClass('options.Class', options.Class) : null
+    const Class: (new (...args: any) => any) | null = options.Class === undefined ? null : OptionParser.toClass('Class', options.Class)
 
     if (Class != null) {
       if (value == null) {
