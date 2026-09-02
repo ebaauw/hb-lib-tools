@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/SysinfoTool.js
+// hb-lib-tools/src/SysinfoTool.ts
 //
 // Show system info.
 // Copyright © 2021-2026 Erik Baauw. All rights reserved.
@@ -31,7 +31,12 @@ Parameters:
   Print full info in json.`
 
 class SysinfoTool extends CommandLineTool {
-  constructor (pkgJson) {
+  pkgJson: Record<string, any>
+  systemInfo: SystemInfo | null = null
+  json = false
+  options: Record<string, any>
+
+  constructor (pkgJson: Record<string, any>) {
     super()
     this.usage = usage
     this.options = {
@@ -66,7 +71,7 @@ class SysinfoTool extends CommandLineTool {
         this.print(this.systemInfo.osInfo.prettyName)
       }
     } catch (error) {
-      await this.fatal(error)
+      await this.fatal(error as Error)
     }
   }
 }
