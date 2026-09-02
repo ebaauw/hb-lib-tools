@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/CommandLineParser.js
+// hb-lib-tools/src/CommandLineParser.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
@@ -7,6 +7,7 @@ import { createRequire } from 'node:module'
 
 import { recommendedNodeVersion } from 'hb-lib-tools'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 
 const require = createRequire(import.meta.url)
 const packageJson = require('../package.json')
@@ -30,11 +31,19 @@ class UsageError extends Error {}
 class CommandLineParser {
   static get UsageError () { return UsageError }
 
+  private _callbacks: {
+    flags: Record<string, (key: string) => void>
+    options: Record<string, (value: string, key: string) => void>
+    parameters: { key: string, callback: (value: string, key: string) => void, optional: boolean }[]
+    remaining: ((values: string[]) => void) | null
+  }
+  private _packageJson: Record<string, any>
+
   /** Create a new parser instance.
     * @params {string} pkgJson - The contents of `package.json` to retrieve
     * the version and homepage for the command-line tool.
     */
-  constructor (pkgJson = packageJson) {
+  constructor (pkgJson: Record<string, any> = packageJson) {
     this._callbacks = {
       flags: {},
       options: {},
@@ -44,30 +53,30 @@ class CommandLineParser {
     this._packageJson = pkgJson
   }
 
-  #toShort (value) {
-    if (value == null) {
+  #toShort (key: any): string | null {
+    if (key == null) {
       return null
     }
-    if (typeof value !== 'string' || value.length !== 1) {
-      throw new TypeError(`${value}: invalid short key`)
+    if (typeof key !== 'string' || key.length !== 1) {
+      throw new TypeError(`${key}: invalid short key`)
     }
-    if (this._callbacks.flags[value] != null) {
-      throw new SyntaxError(`${value}: duplicate short key`)
+    if (this._callbacks.flags[key] != null || this._callbacks.options[key] != null) {
+      throw new SyntaxError(`${key}: duplicate short key`)
     }
-    return value
+    return key
   }
 
-  #toLong (value) {
-    if (value == null) {
+  #toLong (key: any): string | null {
+    if (key == null) {
       return null
     }
-    if (typeof value !== 'string' || value.length === 1) {
-      throw new TypeError(`${value}: invalid long key`)
+    if (typeof key !== 'string' || key.length <= 1) {
+      throw new TypeError(`${key}: invalid long key`)
     }
-    if (this._callbacks.options[value] != null) {
-      throw new SyntaxError(`${value}: duplicate long key`)
+    if (this._callbacks.flags[key] != null || this._callbacks.options[key] != null) {
+      throw new SyntaxError(`${key}: duplicate long key`)
     }
-    return value
+    return key
   }
 
   /** Add a flag to print help text and exit.
@@ -79,8 +88,8 @@ class CommandLineParser {
     * @param {string} helpText - The help text.
     * @return {CommandLineParser} this - For chaining.
     */
-  help (shortKey, longKey, helpText) {
-    helpText = OptionParser.toString('helpText', helpText, true)
+  help (shortKey: string | null, longKey: string | null, helpText: string): CommandLineParser {
+    helpText = OptionParser.toString('helpText', helpText, { nonEmpty: true })
     this.flag(shortKey, longKey, () => {
       const recommendedVersion = recommendedNodeVersion(packageJson)
       const warning = (process.version.slice(1) !== recommendedVersion)
@@ -104,7 +113,7 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * @param {string} longKey - The long key (e.g. `version` for `--version`).
     * @return {CommandLineParser} this - For chaining.
     */
-  version (shortKey, longKey) {
+  version (shortKey: string | null, longKey: string | null): CommandLineParser {
     this.flag(shortKey, longKey, () => {
       console.log(this._packageJson.version)
       process.exit(0)
@@ -122,7 +131,7 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * which will be used to set the debug level.
     * @return {CommandLineParser} this - For chaining.
     */
-  debug (shortKey, longKey, tool) {
+  debug (shortKey: string | null, longKey: string | null, tool: CommandLineTool): CommandLineParser {
     this.flag(shortKey, longKey, () => {
       if (tool.vdebugEnabled) {
         tool.setOptions({ vvdebug: true })
@@ -152,10 +161,9 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * `key` | string | | The key.
     * @return {CommandLineParser} this - For chaining.
     */
-  flag (shortKey, longKey, callback) {
+  flag (shortKey: string | null, longKey: string | null, callback: (key: string) => void): CommandLineParser {
     shortKey = this.#toShort(shortKey)
     longKey = this.#toLong(longKey)
-    callback = OptionParser.toFunction('callback', callback)
     if (shortKey != null) {
       this._callbacks.flags[shortKey] = callback
     }
@@ -185,10 +193,9 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * `key` | string | | The (short or long) key.
     * @return {CommandLineParser} this - For chaining.
     */
-  option (shortKey, longKey, callback) {
+  option (shortKey: string | null, longKey: string | null, callback: (value: string, key: string) => void): CommandLineParser {
     shortKey = this.#toShort(shortKey)
     longKey = this.#toLong(longKey)
-    callback = OptionParser.toFunction('callback', callback)
     if (shortKey != null) {
       this._callbacks.options[shortKey] = callback
     }
@@ -214,9 +221,8 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * @param {boolean} [optional=false] - Whether the parameter is optional.
     * @return {CommandLineParser} this - For chaining.
     */
-  parameter (key, callback, optional = false) {
-    key = OptionParser.toString('key', key, true)
-    callback = OptionParser.toFunction('callback', callback)
+  parameter (key: string, callback: (value: string, key: string) => void, optional: boolean = false): CommandLineParser {
+    key = OptionParser.toString('key', key, { nonEmpty: true })
     this._callbacks.parameters.push({ key, callback, optional })
     return this
   }
@@ -235,7 +241,7 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     * `values` | string[] | | A list of values of the remaining parameters.
     * @return {CommandLineParser} this - For chaining.
     */
-  remaining (/* key, */ callback) {
+  remaining (callback: (values: string[]) => void): CommandLineParser {
     callback = OptionParser.toFunction('callback', callback)
     this._callbacks.remaining = callback
     return this
@@ -245,26 +251,25 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
     *
     * @throws {UsageError} In case of invalid command-line paramters.
     */
-  parse (wordList = process.argv.slice(2)) {
+  parse (wordList: string[] = process.argv.slice(2)) {
     // process.argv[0]: node executable, process.argv[1]: javascript file
-    wordList = OptionParser.toArray('wordList', wordList)
     let wordIndex = 0
     let charIndex
 
-    function handleWord (word, long) {
+    const handleWord = (word: string, long: boolean): boolean => {
       const key = long ? word.split('=')[0] : word[0]
       const option = (long ? '--' : '-') + key
+      const flagCallback = this._callbacks.flags[key]
       let value = long ? word.split('=')[1] : null
-      let callback = this._callbacks.flags[key]
-      if (callback) {
+      if (flagCallback) {
         if (value != null) {
           throw new UsageError(`${option}: option doesn't allow an argument`)
         }
-        callback(option)
+        flagCallback(option)
         return long
       }
-      callback = this._callbacks.options[key]
-      if (callback) {
+      const optionCallback = this._callbacks.options[key]
+      if (optionCallback) {
         value = long ? word.split('=')[1] : word.substring(1)
         if (value) {
           charIndex = word.length
@@ -274,7 +279,7 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
           }
           value = wordList[wordIndex++]
         }
-        callback(value, option)
+        optionCallback(value, option)
         return long
       }
       throw new UsageError(`${option}: unknown option`)
@@ -291,12 +296,12 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
         break
       }
       if (word[1] === '-') {
-        handleWord.call(this, word.substring(2), true)
+        handleWord(word.substring(2), true)
         continue
       }
       charIndex = 1
       while (charIndex < word.length) {
-        if (handleWord.call(this, word.substring(charIndex++), false)) {
+        if (handleWord(word.substring(charIndex++), false)) {
           break
         }
       }
@@ -310,7 +315,7 @@ See ${this._packageJson.homepage.split('#')[0]} for more info.
         break
       }
       const parameter = wordList[wordIndex++]
-      p.callback(parameter)
+      p.callback(parameter, p.key)
     }
     const remaining = wordList.slice(wordIndex, wordList.length)
     const callback = this._callbacks.remaining
