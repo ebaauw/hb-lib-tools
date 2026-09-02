@@ -9,7 +9,7 @@ import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
 const { b, u } = CommandLineTool
 
@@ -48,12 +48,12 @@ Parameters:
   Search for ${u('timeout')} seconds instead of default ${b('5')}.`
 
 class HapTool extends CommandLineTool {
-  pkgJson: Record<string, any>
+  pkgJson: Record<string, unknown>
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
-  options: Record<string, any>
+  options: Record<string, unknown>
 
-  constructor (pkgJson: Record<string, any>) {
+  constructor (pkgJson: Record<string, unknown>) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
@@ -69,11 +69,11 @@ class HapTool extends CommandLineTool {
       .help('h', 'help', help)
       .version('V', 'version')
       .debug('D', 'debug', this)
-      .flag('a', 'all', (key) => { this.options.serviceType = '*' })
-      .flag('d', 'daemon', (key) => { this.options.mode = 'daemon' })
-      .flag('s', 'service', (key) => { this.options.mode = 'service' })
-      .option('T', 'serviceType', (value, key) => { this.options.serviceType = value })
-      .option('t', 'timeout', (value, key) => {
+      .flag('a', 'all', () => { this.options.serviceType = '*' })
+      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
+      .flag('s', 'service', () => { this.options.mode = 'service' })
+      .option('T', 'serviceType', (value) => { this.options.serviceType = value })
+      .option('t', 'timeout', (value) => {
         this.options.timeout = OptionParser.toInt(
           'timeout', value, { min: 1, max: 60, userInput: true }
         )
@@ -91,8 +91,8 @@ class HapTool extends CommandLineTool {
       this.parseArguments()
       this.client = new MdnsClient({
         logger: this,
-        serviceType: this.options.serviceType,
-        timeout: this.options.timeout
+        serviceType: this.options.serviceType as string,
+        timeout: this.options.timeout as integer
       })
       if (this.options.mode) {
         this.setOptions({ mode: this.options.mode })
