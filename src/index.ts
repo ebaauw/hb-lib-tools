@@ -7,7 +7,7 @@ import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Library for Homebridge plugins.
   * See the {@tutorial hb-lib-tools} tutorial.
@@ -49,8 +49,30 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * @module hb-lib-tools
   */
 
+interface Logger {
+  log: (format: string | Error, ...args: any[]) => void,
+  error: (format: string | Error, ...args: any[]) => void,
+  warn: (format: string | Error, ...args: any[]) => void,
+  info: (format: string | Error, ...args: any[]) => void,
+  debug: (format: string | Error, ...args: any[]) => void,
+  vdebug: (format: string | Error, ...args: any[]) => void,
+  vvdebug: (format: string | Error, ...args: any[]) => void
+}
+
+interface SystemError extends Error {
+  errno?: number;
+  path?: string;
+  dest?: string;
+  address?: string;
+  port?: number;
+  hostname?: string;
+  syscall?: string;
+  code?: string;
+  cmd?: string;
+}
+
 // Check of e is a JavaScript runtime error.
-function isJavaScriptError (e) {
+function isJavaScriptError (e: Error) {
   return [
     'AssertionError',
     'EvalError',
@@ -63,7 +85,7 @@ function isJavaScriptError (e) {
 }
 
 // Check if e is a NodeJs runtime error.
-function isNodejsError (e) {
+function isNodejsError (e: SystemError) {
   return typeof e.code === 'string' && e.code.startsWith('ERR_')
 }
 
@@ -77,15 +99,18 @@ function isNodejsError (e) {
   * @returns {string} - The error as string.
   * @memberof module:hb-lib-tools
   */
-function formatError (e, useChalk = false) {
+function formatError (e: SystemError, useChalk = false) {
   if (isJavaScriptError(e) || isNodejsError(e)) {
-    if (useChalk) {
-      const lines = e.stack.split('\n')
-      const firstLine = lines.shift()
-      return firstLine + '\n' + chalk.reset.gray(lines.join('\n'))
+    if (e.stack != null) {
+      if (useChalk) {
+        const lines = e.stack.split('\n')
+        const firstLine = lines.shift()
+        return firstLine + '\n' + chalk.reset.gray(lines.join('\n'))
+      }
+      return e.stack
     }
-    return e.stack
   }
+  e = e as Error & SystemError
   if (e.errno != null) { // SystemError
     let label = ''
     if (e.path != null) {
@@ -123,7 +148,7 @@ function formatError (e, useChalk = false) {
   * @returns {string} - The recommended version of NodeJS.
   * @memberof module:hb-lib-tools
   */
-function recommendedNodeVersion (packageJson) {
+function recommendedNodeVersion (packageJson: { engines?: { node?: string } }) {
   return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
 }
 
@@ -141,31 +166,32 @@ function recommendedNodeVersion (packageJson) {
   * @throws {RangeError} On invalid parameter value.
   * @memberof module:hb-lib-tools
   */
-async function timeout (msec) {
-  msec = OptionParser.toInt('msec', msec, 0)
-  return new Promise((resolve, reject) => {
-    setTimeout(() => { resolve() }, msec)
+const timeout: (msec: number) => Promise<void> = async (msec: number) => {
+  msec = OptionParser.toInt('msec', msec, { min: 0 })
+  return new Promise((resolve: () => void) => {
+    setTimeout(() => {
+      resolve()
+    }, msec)
   })
 }
 
 const zeroes = '00000000000000000000000000000000'
 
 /** Convert integer or Buffer to hex string.
-  * @param {integer|Buffer} i - The integer or Buffer.
+  * @param {integer|Buffer} value - The integer or Buffer.
   * @param {?integer} length - The (minimum) number of digits in the hex string.
   * The hex string is left padded with `0`s, to reach the length.
   * @returns {string} - The hex string.
   * @memberof module:hb-lib-tools
   */
-function toHexString (i, length) {
-  if (Buffer.isBuffer(i)) {
-    return i.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
+const toHexString: (value: integer | Buffer, options?: {
+  length?: integer
+}) => string = (value, options = {}) => {
+  if (Buffer.isBuffer(value)) {
+    return value.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
   }
-  const s = i.toString(16).toUpperCase()
-  if (length == null || s.length >= length) {
-    return s
-  }
-  return (zeroes + s).slice(-length)
+  const length = options.length != null ? OptionParser.toInt('length', options.length, { min: 0, max: 32 }) : 0
+  return OptionParser.toIntString('value', value, { radix: 16, length })
 }
 
-export { formatError, recommendedNodeVersion, timeout, toHexString }
+export { Logger, formatError, recommendedNodeVersion, timeout, toHexString }
