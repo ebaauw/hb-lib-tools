@@ -31,7 +31,7 @@ class CommandLineTool implements Logger {
     */
   static u (text: string) { return chalk.underline(text) }
   
-  private _options: Record<string, any>
+  private _options: Record<string, unknown>
   private optionParser?: OptionParser
   private _name?: string
   private _usage?: string
@@ -48,7 +48,7 @@ class CommandLineTool implements Logger {
       debug: false,
       program: true,
       timestamp: false
-    } as Record<string, any>
+    } as Record<string, unknown>
     // Set logging options.
     this.setOptions(options)
 
@@ -77,7 +77,7 @@ class CommandLineTool implements Logger {
     * @parameter {boolean} [vvdebug=false] - Output very verbose debug messages.
     * @returns {object} - The old options.
     */
-  setOptions (options?: Record<string, any>) {
+  setOptions (options?: Record<string, unknown>) {
     if (this.optionParser == null) {
       this.optionParser = new OptionParser(this._options)
       this.optionParser
@@ -173,7 +173,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  debug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  debug: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     if (this._options.debug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -184,7 +184,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  error: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  error: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({ label: 'error', chalk: chalk.bold.red }, format, ...args)
   }
 
@@ -193,7 +193,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  fatal: (format: string | Error, ...args: any[]) => void = async (format, ...args) => {
+  fatal: (format: string | Error, ...args: unknown[]) => void = async (format, ...args) => {
     this.#log({ label: 'fatal', chalk: chalk.bold.red }, format, ...args)
     try {
       await this.destroy()
@@ -205,21 +205,21 @@ class CommandLineTool implements Logger {
     await timeout(1000)
   }
 
-  /** Print info message to stderr.
-    * @param {string|Error} format - The printf-style message or an instance of
-    * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...*} args - Arguments to the printf-style message.
-    */
-  info: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
-    this.#log({ chalk: chalk.green }, format, ...args)
-  }
+  // /** Print info message to stderr.
+  //   * @param {string|Error} format - The printf-style message or an instance of
+  //   * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
+  //   * @param {...*} args - Arguments to the printf-style message.
+  //   */
+  // info: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  //   this.#log({ chalk: chalk.green }, format, ...args)
+  // }
 
   /** Print log message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  log: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  log: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({}, format, ...args)
   }
 
@@ -228,7 +228,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  logc: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  logc: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({ noLabel: true }, format, ...args)
   }
 
@@ -237,7 +237,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  print: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  print: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({ noLabel: true, stdout: true }, format, ...args)
   }
 
@@ -246,7 +246,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  vdebug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  vdebug: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     if (this._options.vdebug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -257,7 +257,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  vvdebug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  vvdebug: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     if (this._options.vvdebug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -268,16 +268,16 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  warn: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+  warn: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({ label: 'warning', chalk: chalk.yellow }, format, ...args)
   }
 
   // Do the heavy lifting for debug(), error(), fatal(), log(), and warn(),
   // taking into account the options, and errors vs exceptions.
-  #log: (params: { noLabel?: boolean, stdout?: boolean, label?: string, chalk?: (msg: string) => string }, ...args: any[]) => void = (params, ...args) => {
+  #log: (params: { noLabel?: boolean, stdout?: boolean, label?: string, chalk?: (msg: string) => string }, ...args: unknown[]) => void = (params, ...args) => {
     const output = params.stdout ? process.stdout : process.stderr
     let timestamp = ''
-    let message = ''
+    let message
     let usage
 
     // If last argument is Error convert it to string.
@@ -287,7 +287,7 @@ class CommandLineTool implements Logger {
         if (lastArg.constructor.name === 'UsageError') {
           usage = true
         }
-        lastArg = formatError(lastArg, this._options.chalk)
+        lastArg = formatError(lastArg, this._options.chalk as boolean)
       }
       args.push(lastArg)
     }
@@ -325,7 +325,7 @@ class CommandLineTool implements Logger {
     }
 
     // Handle colours.
-    if (params.chalk != null && this._options.chalk) {
+    if (params.chalk != null && this._options.chalk as boolean) {
       message = params.chalk(message)
     }
     output.write(timestamp + message)
