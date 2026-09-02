@@ -106,7 +106,7 @@ const gamutByManufacturer = {
   }
 } as Record<string, gamut | Record<string, gamut>>
 
-gamutByManufacturer['Signify Netherlands B.V.'] = gamutByManufacturer['Philips']
+gamutByManufacturer['Signify Netherlands B.V.'] = gamutByManufacturer.Philips
 
 // Return point in color gamut closest to p.
 function closestInGamut (p: point, gamut: gamut) {
@@ -306,10 +306,12 @@ class Colour {
     * See [Hue developer portal](https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/).
     * @param {number[]} xy - The CIE 1931 xy colour,
     * x, y between 0.0000 and 1.0000.
-    * @param {Gamut} [gamut=defaultGamut] - The gamut supported by the light.
-    * @return {HSV} hsv - The closest matching sRGB colour.
+    * @param {gamut} [gamut=defaultGamut] - The gamut supported by the light.
+    * @return {hsv} hsv - The closest matching sRGB colour.
     */
   static xyToHsv (xy: [number, number], gamut: gamut = Colour.defaultGamut) {
+    let r!: number, g!: number, b!: number
+  
     // Inverse Gamma correction (sRGB Companding).
     function compand (v: number) {
       return v <= 0.0031308
@@ -344,9 +346,9 @@ class Colour {
     const Y = 1.0
     const X = (Y / y) * x
     const Z = (Y / y) * z
-    let r = X * 1.656492 + Y * -0.354851 + Z * -0.255038
-    let g = X * -0.707196 + Y * 1.655397 + Z * 0.036152
-    let b = X * 0.051713 + Y * -0.121364 + Z * 1.011530
+    r = X * 1.656492 + Y * -0.354851 + Z * -0.255038
+    g = X * -0.707196 + Y * 1.655397 + Z * 0.036152
+    b = X * 0.051713 + Y * -0.121364 + Z * 1.011530
     correctNegative()
     rescale()
     r = compand(r)
