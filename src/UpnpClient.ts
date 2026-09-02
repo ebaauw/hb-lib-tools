@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/UpnpClient.js
+// hb-lib-tools/src/UpnpClient.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
