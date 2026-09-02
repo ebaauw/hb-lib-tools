@@ -1,107 +1,85 @@
-// hb-lib-tools/lib/HttpClient.js
+// hb-lib-tools/src/HttpClient.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
 import { EventEmitter, once } from 'node:events'
-import http from 'node:http'
+import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
 import https from 'node:https'
+import { TLSSocket } from 'tls'
 
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import type { Logger } from 'hb-lib-tools'
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
-/** HTTP error.
-  * @hideconstructor
-  * @extends Error
-  * @memberof HttpClient
-  */
 class HttpError extends Error {
-  constructor (message, request, statusCode, statusMessage) {
+  request: HttpRequest
+  statusCode?: integer
+  statusMessage?: string
+
+  constructor (message: string, request: HttpRequest, statusCode?: integer, statusMessage?: string) {
     super(message)
-    /** @member {HttpClient.HttpRequest} - The request that caused the error.
-      */
+    this.name = 'HttpError'
     this.request = request
-
-    /** @member {?integer} - The HTTP status code.
-      */
     this.statusCode = statusCode
-
-    /** @member {?string} - The HTTP status message.
-      */
     this.statusMessage = statusMessage
   }
 }
 
-/** HTTP request.
-  * @hideconstructor
-  * @memberof HttpClient
-  */
 class HttpRequest {
-  constuctor (name, id, method, resource, headers, body, url) {
-    /** @member {string} - The server name.
-      */
-    this.name = name
+  name: string
+  id: integer
+  method: string
+  resource: string
+  headers: OutgoingHttpHeaders
+  body: unknown
+  jsonBody?: string
+  action?: string
+  url: string
 
-    /** @member {integer} - The request ID.
-      */
-    this.id = id
-
-    /** @member {string} - The request method.
-      */
-    this.method = method
-
-    /** @member {string} - The requested resource.
-      */
-    this.resource = resource
-
-    /** @member {object} - The request headers.
-      */
-    this.headers = headers
-
-    /** @member {?string} - The request body.
-      */
-    this.body = body
-
-    /** @member {string} - The full request URL.
-      */
-    this.url = url
+  constructor (params: {
+    name: string,
+    id: integer,
+    method: string,
+    resource: string,
+    headers: OutgoingHttpHeaders,
+    body: unknown,
+    jsonBody?: string,
+    action?: string,
+    url: string
+  }) {
+    this.name = params.name
+    this.id = params.id
+    this.method = params.method
+    this.resource = params.resource
+    this.headers = params.headers
+    this.body = params.body
+    this.jsonBody = params.jsonBody
+    this.action = params.action
+    this.url = params.url
   }
 }
 
-/** HTTP response.
-  * @hideconstructor
-  * @memberof HttpClient
-  */
 class HttpResponse {
-  constructor (request, statusCode, statusMessage, headers, body, rawBody) {
-    /** @member {HttpClient.HttpRequest} - The request that generated the response.
-      */
+  request: HttpRequest
+  statusCode?: integer
+  statusMessage?: string
+  headers?: IncomingHttpHeaders
+  body?: unknown
+  rawBody?: unknown
+
+  constructor (request: HttpRequest, params: {
+    statusCode?: integer,
+    statusMessage?: string,
+    headers?: IncomingHttpHeaders,
+    body?: unknown,
+    rawBody?: unknown
+  }) {
     this.request = request
-
-    /** @member {integer} - The HTTP status code.
-      */
-    this.statusCode = statusCode
-
-    /** @member {string} - The HTTP status message.
-      */
-    this.statusMessage = statusMessage
-
-    /** @member {object} - The response headers.
-      */
-    this.headers = headers
-
-    /** @member {?*} - The (parsed) response body.
-      * - A JavaScript object in case the response body contains
-      * JSON or XML and an `xmlParser` was specified;
-      * - A string in case case the response body contains text;
-      * - A Buffer otherwise.
-      */
-    this.body = body
-
-    /** @member {?String} - The unparsed response body, in case
-      * The text of the response body in case the response body contains
-      * JSON or XML and an `xmlParser` was specified
-      */
-    this.rawBody = rawBody
+    this.statusCode = params.statusCode
+    this.statusMessage = params.statusMessage
+    this.headers = params.headers
+    this.body = params.body
+    this.rawBody = params.rawBody
   }
 }
 
@@ -119,6 +97,18 @@ class HttpClient extends EventEmitter {
   static get HttpError () { return HttpError }
   static get HttpRequest () { return HttpRequest }
   static get HttpResponse () { return HttpResponse }
+
+  error: (format: string | Error, ...args: unknown[]) => void
+  warn: (format: string | Error, ...args: unknown[]) => void
+  log: (format: string | Error, ...args: unknown[]) => void
+  debug: (format: string | Error, ...args: unknown[]) => void
+  vdebug: (format: string | Error, ...args: unknown[]) => void
+  vvdebug: (format: string | Error, ...args: unknown[]) => void
+  private __params
+  private __options
+  private __requestId: integer
+  private __errorRequestId?: integer
+  private _http: typeof http | typeof https
 
   /** Create a new instance of a client to an HTTP server.
     *
@@ -149,17 +139,55 @@ class HttpClient extends EventEmitter {
     * in case the response constains no body and the status code is not in this list.
     * @param {?function} params.xmlParser - Parser for XML response body.
     */
-  constructor (params) {
+  constructor (params: {
+    ca?: string | string[]
+    checkServerIdentity?: (hostname: string, cert: unknown) => Error | undefined
+    headers?: Record<string, string>
+    host?: string
+    https?: boolean
+    ipv6?: boolean
+    json?: boolean
+    keepAlive?: boolean
+    logger?: Logger
+    maxSockets?: integer
+    name?: string
+    path?: string
+    selfSignedCertificate?: boolean
+    suffix?: string
+    text?: boolean
+    timeout?: integer
+    validStatusCodes?: integer[]
+    xmlParser?: (xml: string) => Promise<unknown>
+  }) {
     super()
+    this.error = params.logger?.error.bind(params.logger) ?? (() => {})
+    this.warn = params.logger?.warn.bind(params.logger) ?? (() => {})
+    this.log = params.logger?.log.bind(params.logger) ?? (() => {})
+    this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
+    this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
+    this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
+    const { hostname, port } = OptionParser.toHost('host', params.host ?? 'localhost:80')
     this.__params = {
-      headers: {},
-      hostname: 'localhost',
+      address: undefined as string | undefined,
+      ca: params.ca === undefined ? undefined : OptionParser.toArray('params.ca', params.ca) as string[],
+      checkServerIdentity: params.checkServerIdentity,
+      headers: params.headers ?? {},
+      hostname: hostname ?? 'localhost',
+      https: false,
+      ipv6: false,
+      json: false,
       keepAlive: false,
+      localAddress: undefined as string | undefined,
       maxSockets: Infinity,
+      name: params.name ?? undefined,
       path: '',
+      port: port,
+      selfSignedCertificate: false,
       suffix: '',
       timeout: 5,
-      validStatusCodes: [200]
+      url: undefined as string | undefined,
+      validStatusCodes: [200] as integer[],
+      xmlParser: undefined as ((xml: string) => Promise<unknown>) | undefined
     }
     const optionParser = new OptionParser(this.__params)
     optionParser
@@ -177,13 +205,12 @@ class HttpClient extends EventEmitter {
       .stringKey('path')
       .boolKey('selfSignedCertificate')
       .stringKey('suffix')
-      .boolKey('text', true)
+      .boolKey('text')
       .intKey('timeout', 1, 60)
       .arrayKey('validStatusCodes')
       .asyncFunctionKey('xmlParser')
       .parse(params)
 
-    this.setLogger(this.__params.logger)
     this.on('error', (error) => { this.#logError(error) })
     this.on('request', (request) => { this.#logRequest(request) })
     this.on('response', (response) => { this.#logResponse(response) })
@@ -196,16 +223,11 @@ class HttpClient extends EventEmitter {
     }
     this._http = this.__params.https ? https : http
     const agentOptions = {
+      ca: this.__params.ca ?? undefined,
+      checkServerIdentity: this.__params.checkServerIdentity ?? undefined,
       keepAlive: this.__params.keepAlive,
-      maxSockets: this.__params.maxSockets
-    }
-    if (this.__params.ca != null) {
-      agentOptions.ca = this.__params.ca
-    }
-    if (this.__params.selfSignedCertificate) {
-      agentOptions.rejectUnauthorized = false
-    } else if (this.__params.checkServerIdentity != null) {
-      agentOptions.checkServerIdentity = this.__params.checkServerIdentity
+      maxSockets: this.__params.maxSockets,
+      rejectUnauthorized: !this.__params.selfSignedCertificate
     }
     this.__options = {
       agent: new this._http.Agent(agentOptions),
@@ -229,7 +251,7 @@ class HttpClient extends EventEmitter {
     this.__requestId = 0
   }
 
-  #setUrl () {
+  #setUrl (): void {
     this.__params.url = this.__params.https ? 'https://' : 'http://'
     this.__params.url += this.__params.hostname
     if (this.__params.port != null) {
@@ -277,7 +299,6 @@ class HttpClient extends EventEmitter {
       ? this.__params.hostname
       : this.__params.name
   }
-
   set name (name) {
     this.__params.name = name
   }
@@ -299,17 +320,6 @@ class HttpClient extends EventEmitter {
     */
   get url () { return this.__params.url }
 
-  /** Sets the logger for the HttpClient.
-    * @param {?} logger - An instance of a class with logging methods.
-    * Typically this would be subclass of `Delegate` from `homebridge-lib`
-    * or of `CommandLineTool`.
-    */
-  setLogger (logger) {
-    for (const f of ['warn', 'log', 'debug', 'vdebug', 'vvdebug']) {
-      this[f] = logger?.[f]?.bind(logger) ?? (() => {})
-    }
-  }
-
   /** GET request.
     * @param {string} [resource='/'] - The resource.
     * @param {?object} headers - Additional headers for the request.
@@ -318,7 +328,7 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async get (resource = '/', headers, suffix) {
+  async get (resource = '/', headers?: Record<string, string>, suffix?: string) {
     return this.request('GET', resource, undefined, headers, suffix)
   }
 
@@ -331,7 +341,7 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async put (resource, body, headers, suffix) {
+  async put (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
     return this.request('PUT', resource, body, headers, suffix)
   }
 
@@ -344,27 +354,27 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async post (resource, body, headers, suffix) {
+  async post (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
     return this.request('POST', resource, body, headers, suffix)
   }
 
   /** DELETE request.
     * @param {!string} resource - The resource.
-    * @param {?*} body - The body for the request.
+    * @param {?unknown} body - The body for the request.
     * @param {?object} headers - Additional headers for the request.
     * @param {?string} suffix - Additional suffix to append after resource
     * e.g. for authentication of the request.
     * @return {object} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async delete (resource, body, headers, suffix) {
+  async delete (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
     return this.request('DELETE', resource, body, headers, suffix)
   }
 
   /** Issue an HTTP request.
     * @param {string} method - The method for the request.
     * @param {!string} resource - The resource for the request.
-    * @param {?*} body - The body for the request.
+    * @param {?unknown} body - The body for the request.
     * @param {?object} headers - Additional headers for the request.
     * @param {?string} suffix - Additional suffix to append after resource
     * e.g. for authentication of the request.
@@ -373,12 +383,12 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async request (method, resource, body, headers, suffix = '', info = {}) {
-    method = OptionParser.toString('method', method, true)
+  async request (method: string, resource: string, body?: unknown, headers?: Record<string, string>, suffix: string = '', info = {}) {
+    method = OptionParser.toString('method', method, { nonEmpty: true }).toUpperCase()
     if (!http.METHODS.includes(method)) {
       throw new TypeError(`${method}: invalid method`)
     }
-    resource = OptionParser.toString('resource', resource, true)
+    resource = OptionParser.toString('resource', resource, { nonEmpty: true })
     if (body != null && !Buffer.isBuffer(body)) {
       body = this.__params.json
         ? JSON.stringify(body)
@@ -396,7 +406,7 @@ class HttpClient extends EventEmitter {
       resource,
       body,
       url
-    }, info)
+    }, info) as HttpRequest
     const request = this._http.request(url, options)
     request
       .on('error', (error) => {
@@ -435,11 +445,11 @@ class HttpClient extends EventEmitter {
           this.__params.checkServerIdentity != null
         ) {
           socket.once('secureConnect', () => {
-            const cert = socket.getPeerCertificate()
+            const cert = (socket as TLSSocket).getPeerCertificate()
             if (Object.keys(cert).length === 0) {
               return
             }
-            const error = this.__params.checkServerIdentity(this.__params.hostname, cert)
+            const error = this.__params.checkServerIdentity!(this.__params.hostname, cert)
             if (error != null) {
               request.destroy(error)
             }
@@ -447,7 +457,7 @@ class HttpClient extends EventEmitter {
         }
       })
       .on('response', (response) => {
-        const chunks = []
+        const chunks: Buffer[] = []
         response
           .on('data', (chunk) => { chunks.push(chunk) })
           .on('end', async () => {
@@ -458,39 +468,37 @@ class HttpClient extends EventEmitter {
               statusCode: response.statusCode,
               statusMessage: response.statusMessage,
               body: buffer.length > 0 ? buffer : null
-            }
+            } as HttpResponse
             const errorMessages = []
 
             const a = response.headers['content-type']?.split(';')
             const contentType = a?.[0]
-            const charset = a?.[1]?.split('=')[1]?.replace(/"/g, '') ?? 'utf-8'
+            const charset = (a?.[1]?.split('=')[1]?.replace(/"/g, '') ?? 'utf-8') as BufferEncoding
             if (
               contentType?.startsWith('text/') ||
               contentType?.endsWith('/json') ||
               contentType?.endsWith('/xml')
             ) {
               try {
-                responseInfo.body = responseInfo.body?.toString(charset)
+                responseInfo.body = (responseInfo.body as Buffer)?.toString(charset)
               } catch (error) {
-                errorMessages.push('response contains invalid text: ' + error.message)
+                errorMessages.push('response contains invalid text: ' + (error as Error).message)
               }
             }
             if (responseInfo.body != null) {
               if (contentType?.endsWith('/json')) {
                 try {
-                  responseInfo.body = JSON.parse(responseInfo.body)
+                  responseInfo.body = JSON.parse(responseInfo.body as string)
                 } catch (error) {
-                  errorMessages.push('response contains invalid json: ' + error.message)
+                  errorMessages.push('response contains invalid json: ' + (error as Error).message)
                 }
               } else if (contentType?.endsWith('/xml') && this.__params.xmlParser != null) {
                 try {
                   responseInfo.rawBody = responseInfo.body
-                  responseInfo.body = await this.__params.xmlParser(
-                    responseInfo.body
-                  )
+                  responseInfo.body = await this.__params.xmlParser(responseInfo.body as string)
                 } catch (error) {
                   responseInfo.rawBody = null
-                  errorMessages.push('response contains invalid xml: ' + error.message)
+                  errorMessages.push('response contains invalid xml: ' + (error as Error).message)
                 }
               }
             }
@@ -502,6 +510,7 @@ class HttpClient extends EventEmitter {
 
             if (
               responseInfo.body == null &&
+              response.statusCode != null &&
               !this.__params.validStatusCodes.includes(response.statusCode)
             ) {
               errorMessages.push(`http status ${response.statusCode} ${response.statusMessage}`)
@@ -518,40 +527,40 @@ class HttpClient extends EventEmitter {
               }
               return
             }
-            this.emit(requestId, responseInfo)
+            this.emit('' + requestId, responseInfo)
           })
       })
 
     if (headers != null) {
-      headers = OptionParser.toObject('headers', headers)
+      headers = OptionParser.toObject('headers', headers) as Record<string, string>
       for (const header in headers) {
         request.setHeader(header, headers[header])
       }
     }
     requestInfo.headers = request.getHeaders()
     request.end(body)
-    const a = await once(this, requestId)
+    const a = await once(this, '' + requestId)
     return a[0]
   }
 
-  #logError (error) {
+  #logError (error: HttpError): void {
     const { request } = error
     const body = request.jsonBody ?? request.body
     const action = request.action ?? body
-    if (request.id !== this._errorRequestId) {
+    if (request.id !== this.__errorRequestId) {
       this.log(
         '%s: request %s: %s %s%s', this.name, request.id,
         request.method, request.resource,
         action == null ? '' : ' ' + action
       )
-      this._errorRequestId = error.request.id
+      this.__errorRequestId = error.request.id
     }
     this.warn(
       '%s: request %d: %s', request.name, request.id, error
     )
   }
 
-  #logRequest (request) {
+  #logRequest (request: HttpRequest): void {
     const body = request.jsonBody ?? request.body
     const action = request.action ?? body
     this.debug(
@@ -579,9 +588,9 @@ class HttpClient extends EventEmitter {
     }
   }
 
-  #logResponse (response) {
-    const dontLogBody = response.body instanceof Buffer || response.body?.length > 1024
-    const body = dontLogBody ? response.body?.length : response.body
+  #logResponse (response: HttpResponse): void {
+    const dontLogBody = response.body instanceof Buffer || (response.body as string)?.length > 1024
+    const body = dontLogBody ? (response.body as string)?.length : response.body
     const rawBody = dontLogBody ? response.body : response.rawBody
     this.debug(
       '%s: request %d: http status %d %s', this.name, response.request.id,
