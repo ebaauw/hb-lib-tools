@@ -1,14 +1,14 @@
-// hb-lib-tools/lib/MdnsClient.js
+// hb-lib-tools/src/MdnsClient.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
 import { EventEmitter } from 'node:events'
 
-import Bonjour from 'bonjour-hap'
+import Bonjour from 'bonjour-service'
 
-import { timeout } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { Logger, timeout } from 'hb-lib-tools'
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Multicast DNS (Bonjour) client.
   * <br>See {@link MdnsClient}.
@@ -21,35 +21,38 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
   * @extends EventEmitter
   */
 class MdnsClient extends EventEmitter {
+  debug: (format: string | Error, ...args: any[]) => void
+  vdebug: (format: string | Error, ...args: any[]) => void
+  vvdebug: (format: string | Error, ...args: any[]) => void
+
+  private _options
+  private bonjour?: Bonjour.Bonjour
+  private browser?: Bonjour.Browser
+
   /** Create a new instance of an mDNS client.
     * @param {object} params - Paramters.
     * @param {function} [params.filter=() => { return true }] - Function to
     * filter mDNS messages.
-    * @param {instance} [params.logger] - Logger instance to log to.
+    * @param {instance} params.logger - Logger instance to log to.
     * @param {string} [params.serviceType='http'] - Filter on mDNS service type.
     * @param {integer} [params.timemout=5] - Timeout (in seconds) for
     * {@link MdnsClient@search search()} to listen for responses.
     */
-  constructor (params = {}) {
+  constructor (params: {
+    filter?: (message: Record<string, any>) => boolean,
+    logger: Logger,
+    serviceType?: string, 
+    timeout?: integer
+  }) {
     super()
+    this.debug = params.logger.debug.bind(params.logger)
+    this.vdebug = params.logger.vdebug.bind(params.logger)
+    this.vvdebug = params.logger.vvdebug.bind(params.logger)
     this._options = {
-      filter: () => { return true },
+      filter: params.filter ?? ((message: Record<string, any>) => { return true }),
       host: '224.0.0.251:5353',
-      timeout: 5,
-      serviceType: 'hap'
-    }
-    const optionParser = new OptionParser(this._options)
-    optionParser
-      .functionKey('filter')
-      .instanceKey('logger')
-      .stringKey('serviceType', true)
-      .intKey('timeout', 1, 60)
-      .parse(params)
-    if (this._options.serviceType === '*') {
-      delete this._options.serviceType
-    }
-    for (const f of ['warn', 'log', 'debug', 'vdebug', 'vvdebug']) {
-      this[f] = params?.logger?.[f]?.bind(params?.logger) ?? (() => {})
+      timeout: params.timeout === null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 }),
+      serviceType: params.serviceType ?? 'hap'
     }
   }
 
@@ -58,7 +61,7 @@ class MdnsClient extends EventEmitter {
     * A {@link MdnsClient#event:serviceUp serviceUp} event will be emitted on each
     * service up announcement received, that passes the filters.
     */
-  listen () {
+  listen (): void {
     if (this.browser != null) {
       this.stopListen()
     }
@@ -69,19 +72,18 @@ class MdnsClient extends EventEmitter {
     this.bonjour = new Bonjour()
     this.browser = this.bonjour.find({ type: this._options.serviceType })
     this.browser.on('up', (message) => {
-      delete message.rawTxt
       // this.vvvdebug('mdns: found %j: %j', message.fqdn, message)
       if (!this._options.filter(message)) {
         return
       }
       this.vvdebug('mdns: found %j: %j', message.fqdn, message)
-      this.vdebug('mdns: found %j at %s:%d', message.fqdn, message.referer.address, message.port)
+      this.vdebug('mdns: found %j at %s:%d', message.fqdn, message.referer!.address, message.port)
       /** Emitted for each response received, that passes the filters.
         * @event MdnsClient#serviceUp
         * @param {string} address - IP address of the device.
         * @param {object} message - The parsed message.
         */
-      this.emit('serviceUp', message.referer.address, message)
+      this.emit('serviceUp', message.referer!.address, message)
     })
   }
 
@@ -105,12 +107,12 @@ class MdnsClient extends EventEmitter {
     * service up announcement received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found services.
     */
-  async search () {
-    function addResult (address, message) {
+  async search (): Promise<Record<string, Record<string, any>>> {
+    function addResult (address: string, message: Record<string, any>): void {
       result[message.fqdn] = message
     }
 
-    const result = {}
+    const result = {} as Record<string, Record<string, any>>
     const noListener = this.browser == null
     this.on('serviceUp', addResult)
     this.debug(
