@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/Colour.ts
+// hb-lib-tools/src/Colour.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2016-2026 Erik Baauw. All rights reserved.
