@@ -54,13 +54,13 @@ Parameters:
   Search for Sonos Zone Players.`
 
 class UpnpTool extends CommandLineTool {
-  pkgJson: Record<string, any>
+  pkgJson: Record<string, unknown>
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
-  options: Record<string, any>
-  upnp: Record<string, any>
+  options: Record<string, unknown>
+  upnp: Record<string, unknown>
 
-  constructor (pkgJson: Record<string, any>) {
+  constructor (pkgJson: Record<string, unknown>) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
@@ -76,21 +76,21 @@ class UpnpTool extends CommandLineTool {
       .help('h', 'help', help)
       .version('V', 'version')
       .debug('D', 'debug', this)
-      .flag('a', 'all', (key) => { this.upnp.deviceType = 'ssdp:all' })
-      .flag('d', 'daemon', (key) => { this.options.mode = 'daemon' })
-      .flag('s', 'service', (key) => { this.options.mode = 'service' })
-      .option('T', 'deviceType', (value, key) => { this.upnp.deviceType = value })
-      .option('t', 'timeout', (value, key) => {
+      .flag('a', 'all', () => { this.upnp.deviceType = 'ssdp:all' })
+      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
+      .flag('s', 'service', () => { this.options.mode = 'service' })
+      .option('T', 'deviceType', (value) => { this.upnp.deviceType = value })
+      .option('t', 'timeout', (value) => {
         this.upnp.timeout = OptionParser.toInt(
           'timeout', value, { min: 1, max: 60, userInput: true }
         )
       })
-      .flag('p', 'hue', (key) => {
+      .flag('p', 'hue', () => {
         this.upnp.filter = (message: Record<string, string>) => {
           return /^[0-9A-F]{16}$/.test(message['hue-bridgeid'])
         }
       })
-      .flag('z', 'sonos', (key) => {
+      .flag('z', 'sonos', () => {
         this.upnp.deviceType = 'urn:schemas-upnp-org:device:ZonePlayer:1'
       })
       .parse()
