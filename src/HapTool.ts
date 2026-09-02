@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/HapTool.js
+// hb-lib-tools/src/HapTool.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
@@ -48,7 +48,12 @@ Parameters:
   Search for ${u('timeout')} seconds instead of default ${b('5')}.`
 
 class HapTool extends CommandLineTool {
-  constructor (pkgJson) {
+  pkgJson: Record<string, any>
+  client: MdnsClient | null = null
+  jsonFormatter!: JsonFormatter
+  options: Record<string, any>
+
+  constructor (pkgJson: Record<string, any>) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
@@ -70,10 +75,15 @@ class HapTool extends CommandLineTool {
       .option('T', 'serviceType', (value, key) => { this.options.serviceType = value })
       .option('t', 'timeout', (value, key) => {
         this.options.timeout = OptionParser.toInt(
-          'timeout', value, 1, 60, true
+          'timeout', value, { min: 1, max: 60, userInput: true }
         )
       })
       .parse()
+    this.jsonFormatter = new JsonFormatter(
+      this.options.mode === 'service'
+        ? { noWhiteSpace: true, sortKeys: true }
+        : { sortKeys: true }
+    )
   }
 
   async main () {
@@ -84,11 +94,6 @@ class HapTool extends CommandLineTool {
         serviceType: this.options.serviceType,
         timeout: this.options.timeout
       })
-      this.jsonFormatter = new JsonFormatter(
-        this.options.mode === 'service'
-          ? { noWhiteSpace: true, sortKeys: true }
-          : { sortKeys: true }
-      )
       if (this.options.mode) {
         this.setOptions({ mode: this.options.mode })
         this.client.on('serviceUp', (address, obj) => {
@@ -100,7 +105,7 @@ class HapTool extends CommandLineTool {
       const result = await this.client.search()
       this.print(this.jsonFormatter.stringify(result))
     } catch (error) {
-      await this.fatal(error)
+      await this.fatal(error as Error)
     }
   }
 
