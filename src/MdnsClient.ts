@@ -21,9 +21,9 @@ import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
   * @extends EventEmitter
   */
 class MdnsClient extends EventEmitter {
-  debug: (format: string | Error, ...args: any[]) => void
-  vdebug: (format: string | Error, ...args: any[]) => void
-  vvdebug: (format: string | Error, ...args: any[]) => void
+  debug: (format: string | Error, ...args: unknown[]) => void
+  vdebug: (format: string | Error, ...args: unknown[]) => void
+  vvdebug: (format: string | Error, ...args: unknown[]) => void
 
   private _options
   private bonjour?: Bonjour.Bonjour
@@ -39,7 +39,7 @@ class MdnsClient extends EventEmitter {
     * {@link MdnsClient@search search()} to listen for responses.
     */
   constructor (params: {
-    filter?: (message: Record<string, any>) => boolean,
+    filter?: (message: Record<string, unknown>) => boolean,
     logger: Logger,
     serviceType?: string, 
     timeout?: integer
@@ -49,7 +49,7 @@ class MdnsClient extends EventEmitter {
     this.vdebug = params.logger.vdebug.bind(params.logger)
     this.vvdebug = params.logger.vvdebug.bind(params.logger)
     this._options = {
-      filter: params.filter ?? ((message: Record<string, any>) => { return true }),
+      filter: params.filter ?? (() => { return true }) as (message: Record<string, unknown>) => boolean,
       host: '224.0.0.251:5353',
       timeout: params.timeout === null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 }),
       serviceType: params.serviceType ?? 'hap'
@@ -73,7 +73,7 @@ class MdnsClient extends EventEmitter {
     this.browser = this.bonjour.find({ type: this._options.serviceType })
     this.browser.on('up', (message) => {
       // this.vvvdebug('mdns: found %j: %j', message.fqdn, message)
-      if (!this._options.filter(message)) {
+      if (!this._options.filter(message as unknown as Record<string, unknown>)) {
         return
       }
       this.vvdebug('mdns: found %j: %j', message.fqdn, message)
@@ -107,12 +107,13 @@ class MdnsClient extends EventEmitter {
     * service up announcement received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found services.
     */
-  async search (): Promise<Record<string, Record<string, any>>> {
-    function addResult (address: string, message: Record<string, any>): void {
-      result[message.fqdn] = message
+  async search (): Promise<Record<string, Record<string, unknown>>> {
+    const result = {} as Record<string, Record<string, unknown>>
+
+    function addResult (address: string, message: Record<string, unknown>): void {
+      result[message.fqdn as string] = message
     }
 
-    const result = {} as Record<string, Record<string, any>>
     const noListener = this.browser == null
     this.on('serviceUp', addResult)
     this.debug(
