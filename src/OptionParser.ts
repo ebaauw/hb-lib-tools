@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/OptionParser.js
+// hb-lib-tools/src/OptionParser.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
@@ -7,7 +7,11 @@ import { EventEmitter } from 'node:events'
 import { posix } from 'node:path'
 import { isIPv4, isIPv6 } from 'node:net'
 
-const noop = () => {}
+type integer = number
+type hostname = string
+type Host = { hostname: hostname, port?: integer }
+type host = string
+type path = string
 
 /** User input error.
   * @hideconstructor
@@ -17,18 +21,37 @@ const noop = () => {}
 class UserInputError extends Error {}
 
 // Create a new RangeError or UserInputError, depending on userInput.
-function newRangeError (message, userInput = false) {
+function newRangeError (message: string, userInput = false) {
   return userInput ? new UserInputError(message) : new RangeError(message)
 }
 
 // Create a new SyntaxError or UserInputError, depending on userInput.
-function newSyntaxError (message, userInput = false) {
+function newSyntaxError (message: string, userInput = false) {
   return userInput ? new UserInputError(message) : new SyntaxError(message)
 }
 
 // Create a new TypeError or UserInputError, depending on userInput.
-function newTypeError (message, userInput = false) {
+function newTypeError (message: string, userInput = false) {
   return userInput ? new UserInputError(message) : new TypeError(message)
+}
+
+type CallBackFunction = {
+  (value: any): void
+  list?: Record<string, any>
+}
+
+const patterns = {
+  host: /^(?:\[(.+)\]|([^:]+))(?::([0-9]{1,5}))?$/,
+  hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
+  int: /^\s*([+-]?)([0-9]+(?:\.0*)?)\s*$/,
+  intBin: /^\s*([+-]?)(?:0[bB])([01]+)\s*$/,
+  intOct: /^\s*([+-]?)(?:0[oO])([0-8]+)\s*$/,
+  intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/,
+  ipv4: /^(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])$/,
+  number: /^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$/,
+  mac: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
+  mac64: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
+  uuid: /^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([1-5][0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$/
 }
 
 /** Parser and validator for options and other parameters.
@@ -45,34 +68,6 @@ function newTypeError (message, userInput = false) {
   * @emits warning
   */
 class OptionParser extends EventEmitter {
-  /** Commonly used regular expressions.
-    * @type {object}
-    * @property {RegExp} hostname - Internet hostname.
-    * @property {RegExp} int - Decimal integer.
-    * @property {RegExp} intBin - Binary integer, optionally prefixed with `0b`.
-    * @property {RegExp} intOct - Octal integer, optionally prefixed with `0o`.
-    * @property {RegExp} intHex - Hexadecimal integer, optionally prefixed with `0x`.
-    * @property {RegExp} ipv4 - IPv4 address in dot notation.
-    * @property {RegExp} number - Number.
-    * @property {RegExp} mac - Mac address (EUI-48).
-    * @property {RegExp} mac64 - 64-bit mac address (EUI-64).
-    * @property {RegExp} uuid - UUID.
-    */
-  static get patterns () {
-    return Object.freeze({
-      _host: /^(?:\[(.+)\]|([^:]+))(?::([0-9]{1,5}))?$/,
-      hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
-      int: /^\s*([+-]?)([0-9]+(?:\.0*)?)\s*$/,
-      intBin: /^\s*([+-]?)(?:0[bB])([01]+)\s*$/,
-      intOct: /^\s*([+-]?)(?:0[oO])([0-8]+)\s*$/,
-      intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/,
-      ipv4: /^(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])$/,
-      number: /^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$/,
-      mac: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
-      mac64: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
-      uuid: /^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([1-5][0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$/
-    })
-  }
 
   static get UserInputError () { return UserInputError }
 
@@ -85,17 +80,22 @@ class OptionParser extends EventEmitter {
     * with value 'true', 'yes', 'on', or '1' (true).
     * @param {!string} key - The key of the input value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {boolean} The value as boolean.
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toBool (key, value, userInput = false) {
-    key === 'key' || key === 'nonEmpty' || OptionParser.toString('key', key, true)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toBool: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => boolean = (key, value, options = {
+    userInput: false
+  }) => {
+    key === 'key' || key === 'nonEmpty' || OptionParser.toString('key', key, { nonEmpty: true })
+    options.userInput === false || OptionParser.toBool('userInput', options.userInput)
 
     if (value == null) {
-      throw newTypeError(`${key}: missing boolean value`, userInput)
+      throw newTypeError(`${key}: missing boolean value`, options.userInput)
     }
     if (typeof value === 'boolean') {
       return value
@@ -109,7 +109,7 @@ class OptionParser extends EventEmitter {
     if (['false', 'no', 'off', '0', 0].includes(value)) {
       return false
     }
-    throw newTypeError(`${key}: not a boolean`, userInput)
+    throw newTypeError(`${key}: not a boolean`, options.userInput)
   }
 
   /** Casts input value to integer, optionally clamped between min and max.
@@ -117,22 +117,24 @@ class OptionParser extends EventEmitter {
     * Valid input values are:
     * - A boolean: false (0) or true (1);
     * - A number with an integer value;
-    * - A string holding an integer value in decimal, binary, octal or
-    * hexadecimal notation.
+    * - A string holding an integer value in decimal, binary, octal or hexadecimal notation.
     * @param {!string} key - The key of the input value (for error messages).
     * @param {*} value - The input value.
-    * @param {?integer} min - Minimum value returned.
-    * @param {?integer} max - Maximum value returned.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {?integer} [options.min=Number.MIN_SAFE_INTEGER] - Minimum value returned.
+    * @param {?integer} [options.max=Number.MAX_SAFE_INTEGER] - Maximum value returned.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {integer} The value as integer.
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toInt (key, value, min = -Infinity, max = Infinity, userInput = false) {
-    OptionParser.toString('key', key, true)
-    min === -Infinity || OptionParser.toInt('min', min)
-    max === Infinity || OptionParser.toInt('max', max)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toInt: (key: string, value: any, options?: {
+    min?: integer, max?: integer, userInput?: boolean
+  }) => integer = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : OptionParser.toInt('min', options.min)
+    const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : OptionParser.toInt('max', options.max)
+    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
@@ -140,19 +142,22 @@ class OptionParser extends EventEmitter {
     if (value == null) {
       throw newTypeError(`${key}: missing integer value`, userInput)
     }
+    if (typeof value === 'number') {
+      value = '' + value
+    }
     if (typeof value === 'boolean') {
       value = value ? 1 : 0
-    } else if (typeof value === 'number' || typeof value === 'string') {
-      if (OptionParser.patterns.int.test(value)) {
+    } else if (typeof value === 'string') {
+      if (patterns.int.test(value)) {
         value = parseInt(value)
-      } else if (OptionParser.patterns.intHex.test(value)) {
+      } else if (patterns.intHex.test(value)) {
         value = parseInt(value, 16)
-      } else if (OptionParser.patterns.intOct.test(value)) {
-        const a = OptionParser.patterns.intOct.exec(value)
-        value = parseInt(a[1] + a[2], 8)
-      } else if (OptionParser.patterns.intBin.test(value)) {
-        const a = OptionParser.patterns.intBin.exec(value)
-        value = parseInt(a[1] + a[2], 2)
+      } else if (patterns.intOct.test(value)) {
+        const a = patterns.intOct.exec(value)
+        value = parseInt(a![1] + a![2], 8)
+      } else if (patterns.intBin.test(value)) {
+        const a = patterns.intBin.exec(value)
+        value = parseInt(a![1] + a![2], 2)
       } else {
         throw newTypeError(`${key}: not an integer`, userInput)
       }
@@ -170,22 +175,32 @@ class OptionParser extends EventEmitter {
     *
     * @param {!string} key - The key of the value (for error messages).
     * @param {integer} value - The input value.
-    * @param {integer} [radix=10] - The radix.
-    * @param {integer} [length=0] - The minimum length of the formatted string.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {?integer} [options.min=Number.MIN_SAFE_INTEGER] - Minimum value returned.
+    * @param {?integer} [options.max=Number.MAX_SAFE_INTEGER] - Maximum value returned.
+    * @param {integer} [options.radix=10] - The radix.
+    * @param {integer} [options.length=0] - The minimum length of the formatted string.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {string} The formatted string.
     * @throws {TypeError} On invalid input value.
     */
-  static toIntString (key, value, radix = 10, length = 0, userInput = false) {
-    radix === 10 || OptionParser.toInt('radix', 2, 36)
-    length === 0 || OptionParser.toInt('length', 0, 32)
+  static toIntString: (key: string, value: any, options?: {
+    min?: integer, max?: integer, radix?: integer, length?: integer, userInput?: boolean
+  }) => string = (key, value, options = {
+    min: Number.MIN_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER,
+    radix: 10, length: 0, userInput: false
+  }) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const min = options.min != null ? OptionParser.toInt('min', options.min) : Number.MIN_SAFE_INTEGER
+    const max = options.max != null ? OptionParser.toInt('max', options.max) : Number.MAX_SAFE_INTEGER
+    const radix = options.radix != null ? OptionParser.toInt('radix', options.radix, { min: 2, max: 36 }) : 10
+    const length = options.length != null ? OptionParser.toInt('length', options.length, { min: 0, max: 32 }) : 0
+    const userInput = options.userInput ?? false
 
     if (value < 0 && radix !== 10) {
-      throw new RangeError(`${key}: not an unsigned integer`, userInput)
+      throw newRangeError(`${key}: not an unsigned integer`, userInput)
     }
-    value = OptionParser.toInt(
-      'value', value, undefined, undefined, userInput
-    ).toString(radix).toUpperCase()
+    value = OptionParser.toInt(key, value, { min, max, userInput }).toString(radix).toUpperCase()
     if (value.length > length) {
       return value
     }
@@ -203,18 +218,21 @@ class OptionParser extends EventEmitter {
     * - A string holding a number value.
     * @param {!string} key - The key of the input value (for error messages).
     * @param {*} value - The input value.
-    * @param {?number} min - Minimum value returned.
-    * @param {?number} max - Maximum value returned.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {?integer} [options.min=-Infinity] - Minimum value returned.
+    * @param {?integer} [options.max=Infinity] - Maximum value returned.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {number} The value as number.
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toNumber (key, value, min = -Infinity, max = Infinity, userInput = false) {
-    OptionParser.toString('key', key, true)
-    min === -Infinity || OptionParser.toNumber('min', min)
-    max === Infinity || OptionParser.toNumber('max', max)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toNumber: (key: string, value: any, options?: {
+    min?: number, max?: number, userInput?: boolean
+  }) => number = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const min = options.min != null ? OptionParser.toInt('min', options.min) : -Infinity
+    const max = options.max != null ? OptionParser.toInt('max', options.max) : Infinity
+    const userInput = options.userInput ?? false
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
@@ -224,8 +242,9 @@ class OptionParser extends EventEmitter {
     }
     if (typeof value === 'boolean') {
       value = value ? 1 : 0
-    } else if (typeof value === 'number' || typeof value === 'string') {
-      if (OptionParser.patterns.number.test(value)) {
+    } else if (typeof value === 'number') {
+    } else if (typeof value === 'string') {
+      if (patterns.number.test(value)) {
         value = parseFloat(value)
       } else {
         throw newTypeError(`${key}: not a number`, userInput)
@@ -244,24 +263,31 @@ class OptionParser extends EventEmitter {
     *
     * @param {!string} key - The key of the value (for error messages).
     * @param {integer} value - The input value.
-    * @param {integer} [length=0] - The minimum length of the formatted string.
-    * @param {?integer} decimals - The fixed number of decimals
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {?integer} [options.min=-Infinity] - Minimum value returned.
+    * @param {?integer} [options.max=Infinity] - Maximum value returned.
+    * @param {integer} [options.length=0] - The minimum length of the formatted string.
+    * @param {?integer} options.decimals - The fixed number of decimals
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {string} The formatted string.
     * @throws {TypeError} On invalid input value.
     */
-  static toNumberString (
-    key, value, length = 0, decimals = null, userInput = false
-  ) {
-    OptionParser.toString('key', key, true)
-    length === 0 || OptionParser.toInt('length', 0, 32)
-    decimals === 0 || OptionParser.toInt('decimals', 0, 16)
+  static toNumberString: (key: string, value: any, options?: {
+    min?: number, max?: number, length?: integer, decimals?: integer, userInput?: boolean
+  }) => string = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const min = options.min != null ? OptionParser.toInt('options.min', options.min) : -Infinity
+    const max = options.max != null ? OptionParser.toInt('options.max', options.max) : Infinity
+    const length = options.length != null ? OptionParser.toInt('options.length', options.length, { min: 0, max: 32 }) : 0
+    const decimals = options.decimals != null ? OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 }) : null
+    const userInput = options.userInput ?? false
 
-    value = OptionParser.toNumber(key, value, undefined, undefined, userInput)
+    value = OptionParser.toNumber(key, value, { min, max, userInput })
     if (decimals == null) {
       value = value.toString(10)
     } else {
-      value = value.toFixed(decimals)
+      const factor = Math.pow(10, decimals)
+      value = (Math.round(value * factor) / factor).toString(10)
     }
     if (value.length > length) {
       return value
@@ -277,17 +303,20 @@ class OptionParser extends EventEmitter {
     * - A number.
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [nonEmpty=false] - Empty string is invalid value.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.nonEmpty=false] - Empty string is invalid value.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {string} The value as string.
     * @throws {TypeError} On invalid input value.
-    * @throws {RangeError} On empty string, when noEmptyString has been set.
+    * @throws {RangeError} On empty string, when options.nonEmpty has been set.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toString (key, value, nonEmpty = false, userInput = false) {
-    key === 'key' || OptionParser.toString('key', key, true)
-    nonEmpty === false || OptionParser.toBool('nonEmpty', nonEmpty)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toString: (key: string, value: any,  options?: {
+    nonEmpty?: boolean, userInput?: boolean
+  }) => string = (key, value, options = {}) => {
+    key === 'key' || OptionParser.toString('key', key, { nonEmpty: true })
+    const nonEmpty = options.nonEmpty ?? false
+    const userInput = options.userInput ?? false
 
     if (value == null && nonEmpty) {
       throw newTypeError(`${key}: missing string value`, userInput)
@@ -307,21 +336,21 @@ class OptionParser extends EventEmitter {
   /** Casts input value to hostname[:port].
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [asString=false] - Return path as string instead of object.
-    * @param {boolean} [userInput=false] - Value was input by user.
-    * @returns {object|string} The value as { hostname: hostname, port: port }.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
+    * @returns {Host} The value as { hostname: hostname, port: port }.
     * @throws {TypeError} On invalid input value.
-    * @throws {RangeError} On empty string, when noEmptyString has been set.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toHost (key, value, asString = false, userInput = false) {
-    key === 'key' || OptionParser.toString('key', key, true)
-    asString === false || OptionParser.toBool('asString', asString)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toHost: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => Host = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const userInput = options.userInput ?? false
 
-    OptionParser.toString(key, value, true, userInput)
-    const response = {}
-    const list = OptionParser.patterns._host.exec(value)
+    OptionParser.toString(key, value, { nonEmpty: true, userInput })
+    const response: Host = { hostname: ''}
+    const list = patterns.host.exec(value)
     if (list == null) {
       throw newRangeError(`${key}: not a valid host`, userInput)
     }
@@ -334,42 +363,62 @@ class OptionParser extends EventEmitter {
       response.hostname = list[2].split('.').map((byte) => {
         return parseInt(byte)
       }).join('.')
-    } else if (OptionParser.patterns.hostname.test(list[2])) {
+    } else if (patterns.hostname.test(list[2])) {
       response.hostname = list[2]
     } else {
       throw newRangeError(`${key}: ${list[2]}: not a valid hostname or IPv4 address`, userInput)
     }
-    let host = response.hostname
     if (list[3] != null) {
       const port = parseInt(list[3], 10)
       if (port < 0 || port > 65535) {
         throw newRangeError(`${key}: ${port}: not a valid port`, userInput)
       }
       response.port = port
-      host += ':' + port
     }
-    return asString ? host : response
+    return response
+  }
+
+  /** Casts input value to hostname[:port].
+    * @param {!string} key - The key of the value (for error messages).
+    * @param {*} value - The input value.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
+    * @returns {string} The value as hostname[:port].
+    * @throws {TypeError} On invalid input value.
+    * @throws {UserError} On error, when value was input by user.
+    */
+  static toHostString: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => host = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const userInput = options.userInput ?? false
+
+    const { hostname, port } = OptionParser.toHost(key, value, { userInput })
+    return hostname + (port != null ? ':' + port : '')
   }
 
   /** Casts input value to path.
     *
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {string} The value as normalised resource path.
     * @throws {TypeError} On invalid input value.
     * @throws {RangeError} On empty string, on string not starting with '/'.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toPath (key, value, userInput = false) {
-    OptionParser.toString('key', key, true)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toPath: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => path = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const userInput = options.userInput ?? false
 
-    value = OptionParser.toString(key, value, true, userInput)
-    if (value[0] !== '/') {
-      throw newRangeError(`${key}: ${value}: not a valid path`, key, value)
+    const path = OptionParser.toString(key, value, { nonEmpty: true, userInput })
+    if (path[0] !== '/') {
+      throw newRangeError(`${key}: ${path}: not a valid path`, userInput)
     }
-    return posix.normalize(value)
+    return posix.normalize(path)
   }
 
   /** Casts input value to array.
@@ -380,14 +429,17 @@ class OptionParser extends EventEmitter {
     * - An array.
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {string} The value as array.
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toArray (key, value, userInput = false) {
-    OptionParser.toString('key', key, true)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toArray: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => any[] = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const userInput = options.userInput ?? false
 
     if (value == null) {
       return []
@@ -408,14 +460,17 @@ class OptionParser extends EventEmitter {
     * - A proper object (i.e. not a class instance).
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {boolean} [userInput=false] - Value was input by user.
+    * @param {Object} [options] - Additional options.
+    * @param {boolean} [options.userInput=false] - Value was input by user.
     * @returns {Object} The value.
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toObject (key, value, userInput = false) {
-    OptionParser.toString('key', key, true)
-    userInput === false || OptionParser.toBool('userInput', userInput)
+  static toObject: (key: string, value: any, options?: {
+    userInput?: boolean
+  }) => Record<string, any> = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const userInput = options.userInput ?? false
 
     if (value == null) {
       return {}
@@ -438,8 +493,8 @@ class OptionParser extends EventEmitter {
     * @returns {function} The value.
     * @throws {TypeError} On invalid input value.
     */
-  static toFunction (key, value) {
-    OptionParser.toString('key', key, true)
+  static toFunction: (key: string, value: any) => ((...args: any[]) => any) = (key, value) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
 
     if (value == null) {
       throw new TypeError(`${key}: missing function value`)
@@ -462,9 +517,9 @@ class OptionParser extends EventEmitter {
     * @returns {function} The value.
     * @throws {TypeError} On invalid input value.
     */
-  static toAsyncFunction (key, value) {
-    OptionParser.toString('key', key, true)
-
+  static toAsyncFunction: (key: string, value: any) => ((...args: any[]) => Promise<any>) = (key, value) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+  
     if (value == null) {
       throw new TypeError(`${key}: missing async function value`)
     }
@@ -483,13 +538,14 @@ class OptionParser extends EventEmitter {
     * - A proper Class or function with a prototype.
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {?Class} SuperClass - Check for subclass of SuperClass.
+    * @param {Object} [options] - Additional options.
+    * @param {?Class} options.SuperClass - Check for subclass of SuperClass.
     * @returns {*} The value.
     * @throws {TypeError} On invalid input value.
     */
-  static toClass (key, value, SuperClass) {
-    OptionParser.toString('key', key, true)
-    SuperClass === undefined || OptionParser.toClass('SuperClass', SuperClass)
+  static toClass: (key: string, value: any, options?: { SuperClass?: new (...args: any) => any }) => any = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const SuperClass: (new (...args: any) => any) | null = options.SuperClass != null ? OptionParser.toClass('SuperClass', options.SuperClass) : null
 
     if (value == null) {
       throw new TypeError(`${key}: missing class value`)
@@ -512,13 +568,14 @@ class OptionParser extends EventEmitter {
     * - A class instance or a proper function.
     * @param {!string} key - The key of the value (for error messages).
     * @param {*} value - The input value.
-    * @param {?Class} Class - Check for instance of Class.
+    * @param {Object} [options] - Additional options.
+    * @param {?Class} options.Class - Check for instance of Class.
     * @returns {Class} The value.
     * @throws {TypeError} On invalid input value.
     */
-  static toInstance (key, value, Class) {
-    OptionParser.toString('key', key, true)
-    Class === undefined || OptionParser.toClass('Class', Class)
+  static toInstance: (key: string, value: any, options?: { Class?: new (...args: any) => any }) => any = (key, value, options = {}) => {
+    OptionParser.toString('key', key, { nonEmpty: true })
+    const Class: (new (...args: any) => any) | null = options.Class != null ? OptionParser.toClass('options.Class', options.Class) : null
 
     if (Class != null) {
       if (value == null) {
@@ -538,14 +595,18 @@ class OptionParser extends EventEmitter {
     throw new TypeError(`${key}: not an instance`)
   }
 
+  _object: Record<string, any>
+  _userInput: boolean
+  _callbacks: Record<string, CallBackFunction>
+
   /** Creates a new OptionParser instance
     *
     * @param {boolean} [userInput=false] - Options were input by user.
     */
-  constructor (object = {}, userInput = false) {
+  constructor (object: Record<string, any> = {}, userInput: boolean = false) {
     super()
-    this._object = OptionParser.toObject('object', object)
-    this._userInput = OptionParser.toBool('userInput', userInput)
+    this._object = object
+    this._userInput = userInput
     this._callbacks = {}
   }
 
@@ -556,8 +617,8 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  _toKey (key) {
-    key = OptionParser.toString('key', key, true)
+  _toKey (key: string): string {
+    key = OptionParser.toString('key', key, { nonEmpty: true })
     if (this._callbacks[key] != null) {
       throw new SyntaxError(`${key}: duplicate key`)
     }
@@ -572,11 +633,11 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  arrayKey (key) {
+  arrayKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toArray(key, value, this._userInput)
+      this._object[key] = OptionParser.toArray(key, value, { userInput: this._userInput })
     }
     return this
   }
@@ -589,7 +650,7 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  asyncFunctionKey (key) {
+  asyncFunctionKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
@@ -606,11 +667,11 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  boolKey (key) {
+  boolKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toBool(key, value, this._userInput)
+      this._object[key] = OptionParser.toBool(key, value, { userInput: this._userInput })
     }
     return this
   }
@@ -623,19 +684,19 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  enumKey (key) {
+  enumKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
       value = OptionParser.toString(
-        key, value, true, this._userInput
+        key, value, { nonEmpty: true, userInput: this._userInput }
       )
-      const callback = this._callbacks[key].list[value]
+      const callback: CallBackFunction = this._callbacks[key].list![value]
       if (callback == null) {
         throw newRangeError(`${value}: invalid ${key}`, this._userInput)
       }
       this._object[key] = value
-      callback()
+      callback(value)
     }
     this._callbacks[key].list = {}
     return this
@@ -651,13 +712,13 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  enumKeyValue (key, value, callback = noop) {
-    key = OptionParser.toString('key', key, true)
-    value = OptionParser.toString('value', value, true)
+  enumKeyValue (key: string, value: any, callback = () => {}): OptionParser {
+    key = OptionParser.toString('key', key, { nonEmpty: true })
+    value = OptionParser.toString('value', value, { nonEmpty: true })
     OptionParser.toFunction(key, this._callbacks[key])
     callback = OptionParser.toFunction('callback', callback)
 
-    this._callbacks[key].list[value] = callback
+    this._callbacks[key].list![value] = callback
     return this
   }
 
@@ -669,7 +730,7 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  functionKey (key) {
+  functionKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
@@ -688,16 +749,16 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  hostKey (key = 'host', hostnameKey = 'hostname', portKey = 'port') {
+  hostKey (key = 'host', hostnameKey = 'hostname', portKey = 'port'): OptionParser {
     key = this._toKey(key)
-    hostnameKey = OptionParser.toString('hostnameKey', hostnameKey, true)
-    portKey = OptionParser.toString('portKey', portKey, true)
+    hostnameKey = OptionParser.toString('hostnameKey', hostnameKey, { nonEmpty: true })
+    portKey = OptionParser.toString('portKey', portKey, { nonEmpty: true })
 
     this._callbacks[key] = (value) => {
-      const host = OptionParser.toHost(key, value, false, this._userInput)
-      this._object[hostnameKey] = host.hostname
-      if (host.port != null) {
-        this._object[portKey] = host.port
+      const { hostname, port }  = OptionParser.toHost(key, value, { userInput: this._userInput })
+      this._object[hostnameKey] = hostname
+      if (port != null) {
+        this._object[portKey] = port
       }
     }
     return this
@@ -713,7 +774,7 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  instanceKey (key, Class) {
+  instanceKey (key: string, Class?: any): OptionParser {
     key = this._toKey(key)
     Class === undefined || OptionParser.toClass('Class', Class)
 
@@ -734,7 +795,7 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  intKey (key, min, max) {
+  intKey (key: string, min?: number, max?: number): OptionParser {
     key = this._toKey(key)
     min = min == null ? -Infinity : OptionParser.toInt('min', min)
     max = max == null ? Infinity : OptionParser.toInt('max', max)
@@ -743,7 +804,7 @@ class OptionParser extends EventEmitter {
     }
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toInt(key, value, min, max, this._userInput)
+      this._object[key] = OptionParser.toInt(key, value, { min, max, userInput: this._userInput })
     }
     return this
   }
@@ -756,15 +817,15 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  listKey (key) {
+  listKey (key: string): OptionParser {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
       const array = []
-      const map = {}
+      const map: Record<string, boolean> = {}
       for (const element of OptionParser.toArray(key, value)) {
         try {
-          OptionParser.toString(`${key}.${element}`, element, true, this._userInput)
+          OptionParser.toString(`${key}.${element}`, element, { nonEmpty: true, userInput: this._userInput })
           if (map[element]) {
             throw newSyntaxError(`${key}.${element}: duplicate key`, this._userInput)
           }
@@ -794,7 +855,7 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  numberKey (key, min, max) {
+  numberKey (key: string, min?: number, max?: number): OptionParser {
     key = this._toKey(key)
     min = min == null ? -Infinity : OptionParser.toNumber('min', min)
     max = max == null ? Infinity : OptionParser.toNumber('max', max)
@@ -802,8 +863,8 @@ class OptionParser extends EventEmitter {
       throw newRangeError('max: smaller than min')
     }
 
-    this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toNumber(key, value, min, max, this._userInput)
+    this._callbacks[key] = (value: any) => {
+      this._object[key] = OptionParser.toNumber(key, value, { min, max, userInput: this._userInput })
     }
     return this
   }
@@ -816,11 +877,11 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  objectKey (key) {
+  objectKey (key: string) {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toObject(key, value, this._userInput)
+      this._object[key] = OptionParser.toObject(key, value, { userInput: this._userInput })
     }
     return this
   }
@@ -833,11 +894,11 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  pathKey (key) {
+  pathKey (key: string) {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toPath(key, value, this._userInput)
+      this._object[key] = OptionParser.toPath(key, value, { userInput: this._userInput })
     }
     return this
   }
@@ -851,12 +912,12 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  stringKey (key, nonEmpty = false) {
+  stringKey (key: string, nonEmpty = false) {
     key = this._toKey(key)
 
     this._callbacks[key] = (value) => {
       this._object[key] = OptionParser.toString(
-        key, value, nonEmpty, this._userInput
+        key, value, { nonEmpty, userInput: this._userInput }
       )
     }
     return this
@@ -873,7 +934,7 @@ class OptionParser extends EventEmitter {
     * @throws {SyntaxError} Unknown option.
     * @throws {UserInputError} On error, when value was input by user.
     */
-  parse (options) {
+  parse (options?: Record<string, any>) {
     options = OptionParser.toObject('options', options)
 
     for (const key in options) {
@@ -897,4 +958,4 @@ class OptionParser extends EventEmitter {
   }
 }
 
-export { OptionParser }
+export { integer, hostname, Host, host, path, OptionParser }
