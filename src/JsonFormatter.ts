@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import { integer, path, OptionParser } from 'hb-lib-tools/OptionParser'
+import { integer, path } from 'hb-lib-tools/OptionParser'
 
 /** JSON formatter.
   * <br>See {@link JsonFormatter}.
@@ -98,8 +98,8 @@ class JsonFormatter {
     }
   }
 
-  #forEach (value: any, callback: (keys: string[], value: any) => void): void {
-    const forEach: (keys: string[], value: any, depth: number) => void = (keys, value, depth) => {
+  #forEach (value: unknown, callback: (keys: string[], value: unknown) => void): void {
+    const forEach: (keys: string[], value: unknown, depth: number) => void = (keys, value, depth) => {
       const isCollection = (typeof (value) === 'object' && value != null)
 
       if (value === undefined) {
@@ -120,7 +120,7 @@ class JsonFormatter {
           list.sort()
         }
         for (const key of list) {
-          forEach(keys.concat([key]), value[key], depth + 1)
+          forEach(keys.concat([key]), (value as Record<string, unknown>)[key], depth + 1)
         }
       }
     }
@@ -128,16 +128,16 @@ class JsonFormatter {
     forEach([], value, 0)
   }
 
-  #map (value: any, callback: (keys: string[], value: any) => (keys: string[], value: any) => any): any[] {
-    const array: any[] = []
+  #map (value: unknown, callback: (keys: string[], value: unknown) => unknown): unknown[] {
+    const array: unknown[] = []
     this.#forEach(value, (keys, value) => {
       array.push(callback(keys, value))
     })
     return array
   }
 
-  #format (value: any, maxDepth: integer = this.options.maxDepth, withIndent: string = '  '): string {
-    const format = (value: any, depth: integer, indent: string): string => {
+  #format (value: unknown, maxDepth: integer = this.options.maxDepth, withIndent: string = '  '): string {
+    const format = (value: unknown, depth: integer, indent: string): string => {
       const noNewline = this.options.noWhiteSpace || (maxDepth != null && depth >= maxDepth)
       const nl = this.options.noWhiteSpace ? '' : noNewline ? ' ' : '\n'
       const sp = this.options.noWhiteSpace ? '' : ' '
@@ -157,9 +157,9 @@ class JsonFormatter {
         list.sort()
       }
       for (const key of list) {
-        if (value[key] !== undefined) {
+        if ((value as Record<string, unknown>)[key] !== undefined) {
           const k = Array.isArray(value) ? '' : `"${key}":${sp}`
-          const v = format(value[key], depth + 1, `${wi}${id}`)
+          const v = format((value as Record<string, unknown>)[key], depth + 1, `${wi}${id}`)
           array.push(k + v)
         }
       }
@@ -177,12 +177,12 @@ class JsonFormatter {
     * @param {*} value - The JavaScript value.
     * @return {string} json - The formatted JSON string.
     */
-  stringify (value: any): string {
+  stringify (value: unknown): string {
     if (this.options.fromPath != null) {
       const a = this.options.fromPath!.slice(1).split('/')
       for (const key of a) {
         if (typeof (value) === 'object' && value != null) {
-          value = value[key]
+          value = (value as Record<string, unknown>)[key]
         } else {
           value = undefined
         }
@@ -199,7 +199,7 @@ class JsonFormatter {
       } else if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
-        const obj = {} as Record<string, any>
+        const obj = {} as Record<string, unknown>
         obj[`/${keys.join('/')}`] = value
         return obj
       } else {
