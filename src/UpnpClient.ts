@@ -36,10 +36,10 @@ function convert (rawMessage: string): Record<string, string> {
   * @extends EventEmitter
   */
 class UpnpClient extends EventEmitter {
-  warn: (format: string | Error, ...args: any[]) => void
-  debug: (format: string | Error, ...args: any[]) => void
-  vdebug: (format: string | Error, ...args: any[]) => void
-  vvdebug: (format: string | Error, ...args: any[]) => void
+  warn: (format: string | Error, ...args: unknown[]) => void
+  debug: (format: string | Error, ...args: unknown[]) => void
+  vdebug: (format: string | Error, ...args: unknown[]) => void
+  vvdebug: (format: string | Error, ...args: unknown[]) => void
   private _options
   private socket?: ReturnType<typeof createSocket>
   private host?: string
@@ -66,7 +66,7 @@ class UpnpClient extends EventEmitter {
     this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
     this._options = {
       deviceType: params.deviceType ?? 'upnp:rootdevice',
-      filter: params.filter ?? ((message: Record<string, string>) => { return true }),
+      filter: params.filter ?? (() => { return true }) as (message: Record<string, string>) => boolean,
       hostname: '239.255.255.250',
       port: 1900,
       timeout: params.timeout == null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 })
