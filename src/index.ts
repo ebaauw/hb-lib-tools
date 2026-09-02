@@ -50,13 +50,13 @@ import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
   */
 
 interface Logger {
-  log: (format: string | Error, ...args: any[]) => void,
-  error: (format: string | Error, ...args: any[]) => void,
-  warn: (format: string | Error, ...args: any[]) => void,
-  info: (format: string | Error, ...args: any[]) => void,
-  debug: (format: string | Error, ...args: any[]) => void,
-  vdebug: (format: string | Error, ...args: any[]) => void,
-  vvdebug: (format: string | Error, ...args: any[]) => void
+  log: (format: string | Error, ...args: unknown[]) => void,
+  error: (format: string | Error, ...args: unknown[]) => void,
+  warn: (format: string | Error, ...args: unknown[]) => void,
+  // info: (format: string | Error, ...args: unknown[]) => void,
+  debug: (format: string | Error, ...args: unknown[]) => void,
+  vdebug: (format: string | Error, ...args: unknown[]) => void,
+  vvdebug: (format: string | Error, ...args: unknown[]) => void
 }
 
 interface SystemError extends Error {
@@ -174,8 +174,6 @@ const timeout: (msec: number) => Promise<void> = async (msec: number) => {
     }, msec)
   })
 }
-
-const zeroes = '00000000000000000000000000000000'
 
 /** Convert integer or Buffer to hex string.
   * @param {integer|Buffer} value - The integer or Buffer.
