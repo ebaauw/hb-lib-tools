@@ -6,8 +6,7 @@
   "source": {
     "include": [
       "README.md",
-      "index.js",
-      "lib",
+      "src",
       "doc"
     ]
   },
