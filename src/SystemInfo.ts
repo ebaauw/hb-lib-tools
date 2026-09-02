@@ -1,4 +1,4 @@
-// hb-lib-tools/src/SystemInfo.js
+// hb-lib-tools/src/SystemInfo.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2019-2026 Erik Baauw. All rights reserved.
