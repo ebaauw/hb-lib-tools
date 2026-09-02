@@ -1,7 +1,60 @@
-// hb-lib-tools/lib/Colour.js
+// hb-lib-tools/lib/Colour.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2016-2026 Erik Baauw. All rights reserved.
+
+type integer = number
+
+type point = {
+  x: number,
+  y: number
+}
+
+/** [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) `xy`
+  * @typedef
+ */
+type xy = [number, number]
+
+/** Colour [gamut](https://en.wikipedia.org/wiki/Gamut).
+  * @typedef
+  * @property {xy} r - `xy` coordinates for red,
+  * x, y between 0.0000 and 1.0000.
+  * @property {xy} g - `xy` coordinates for green,
+  * x, y between 0.0000 and 1.0000..
+  * @property {xy} b - `xy` coordinates for blue,
+  * x, y between 0.0000 and 1.0000.
+  */
+type gamut = {
+  r: xy
+  g: xy
+  b: xy
+}
+
+/** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in
+  * [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV).
+  * @typedef
+  * @property {integer} h - Hue, between 0˚ and 360˚.
+  * @property {integer} s - Saturation, between 0% and 100%.
+  * @property {integer} v - Value, between 0% and 100%.
+  */
+type hsv = {
+  h: integer,
+  s: integer,
+  v: integer
+}
+
+/** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in
+  * [RGB color model](https://en.wikipedia.org/wiki/RGB_color_model).
+  * @typedef
+  * @property {number} r - Red, between 0.0 and 1.0.
+  * @property {number} g - Green, between 0.0 and 1.0.
+  * @property {number} b - Blue, between 0.0 and 1.0.
+  */
+type rgb = {
+  r: number,
+  g: number,
+  b: number
+}
 
 const gamutByManufacturer = {
   GLEDOPTO: {
@@ -51,26 +104,26 @@ const gamutByManufacturer = {
       b: [0.1530, 0.0480]
     }
   }
-}
+} as Record<string, gamut | Record<string, gamut>>
 
-gamutByManufacturer['Signify Netherlands B.V.'] = gamutByManufacturer.Philips
+gamutByManufacturer['Signify Netherlands B.V.'] = gamutByManufacturer['Philips']
 
 // Return point in color gamut closest to p.
-function closestInGamut (p, gamut) {
+function closestInGamut (p: point, gamut: gamut) {
   // Return cross product of two points.
-  function crossProduct (p1, p2) {
+  function crossProduct (p1: {x: number, y: number}, p2: {x: number, y: number}) {
     return p1.x * p2.y - p1.y * p2.x
   }
 
   // Return distance between two points.
-  function distance (p1, p2) {
+  function distance (p1: point, p2: point) {
     const dx = p1.x - p2.x
     const dy = p1.y - p2.y
     return Math.sqrt(dx * dx + dy * dy)
   }
 
   // Return point on line a,b closest to p.
-  function closest (a, b, p) {
+  function closest (a: point, b: point, p: point) {
     const ap = { x: p.x - a.x, y: p.y - a.y }
     const ab = { x: b.x - a.x, y: b.y - a.y }
     let t = (ap.x * ab.x + ap.y * ab.y) / (ab.x * ab.x + ab.y * ab.y)
@@ -120,24 +173,6 @@ function closestInGamut (p, gamut) {
   * @hideconstructor
   */
 class Colour {
-  /** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in
-    * [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV).
-    * @typedef
-    * @property {integer} h - Hue, between 0˚ and 360˚.
-    * @property {integer} s - Saturation, between 0% and 100%.
-    * @property {integer} v - Value, between 0% and 100%.
-    */
-  static get HSV () {}
-
-  /** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in
-    * [RGB color model](https://en.wikipedia.org/wiki/RGB_color_model).
-    * @typedef
-    * @property {number} r - Red, between 0.0 and 1.0.
-    * @property {number} g - Green, between 0.0 and 1.0.
-    * @property {number} b - Blue, between 0.0 and 1.0.
-    */
-  static get RGB () {}
-
   /** Convert {@link Colour.HSV HSV} to {@link Colour.RGB RGB}.
     *
     * See [HSL and HSV](https://en.wikipedia.org/wiki/HSL_and_HSV).
@@ -146,7 +181,7 @@ class Colour {
     * @param {integer} [v=100] - Value, between 0% and 100%.
     * @return {RGB} rgb - The corresponding {@link Colour.RGB RGB} value.
     */
-  static hsvToRgb (h, s, v = 100) {
+  static hsvToRgb (h: number, s: number, v: number = 100): rgb {
     h /= 60.0
     s /= 100.0
     v /= 100.0
@@ -157,7 +192,7 @@ class Colour {
       x = -x
     }
     x = C * (1.0 - x)
-    let r, g, b
+    let r!: number, g!: number, b!: number
     switch (Math.floor(h) % 6) {
       case 0: r = C + m; g = x + m; b = m; break
       case 1: r = x + m; g = C + m; b = m; break
@@ -177,12 +212,12 @@ class Colour {
     * @param {number} b - Blue, between 0.0 and 1.0.
     * @return {HSV} hsv - The corresponding {@link Colour.HSV HSV} value.
     */
-  static rgbToHsv (r, g, b) {
+  static rgbToHsv (r: number, g: number, b: number): hsv {
     const M = Math.max(r, g, b)
     const m = Math.min(r, g, b)
     const C = M - m
     const S = (M === 0.0) ? 0.0 : C / M
-    let H
+    let H!: number
     switch (M) {
       case m:
         H = 0.0
@@ -209,22 +244,11 @@ class Colour {
     }
   }
 
-  /** Colour [gamut](https://en.wikipedia.org/wiki/Gamut).
-    * @typedef
-    * @property {number[]} r - `xy` coordinates for red,
-    * x, y between 0.0000 and 1.0000.
-    * @property {number[]} g - `xy` coordinates for green,
-    * x, y between 0.0000 and 1.0000..
-    * @property {number[]} b - `xy` coordinates for blue,
-    * x, y between 0.0000 and 1.0000.
-    */
-  static get Gamut () {}
-
   /** Default gamut.
-    * @type {Gamut}
+    * @type {gamut}
     * @readonly
     */
-  static get defaultGamut () {
+  static get defaultGamut (): gamut {
     // Safe default gamut taking into account:
     // - The maximum value for CurrentX and  CurrentY, 65279 (0xfeff),
     //   as defined by the ZCL spec;
@@ -254,9 +278,9 @@ class Colour {
     * @return {number[]} xy - The closest matching CIE 1931 colour,
     * x, y between 0.0000 and 1.0000.
     */
-  static hsvToXy (h, s, gamut = Colour.defaultGamut) {
+  static hsvToXy (h: number, s: number, gamut: gamut = Colour.defaultGamut) {
     // Gamma correction (inverse sRGB Companding).
-    function invCompand (v) {
+    function invCompand (v: number) {
       return v > 0.04045 ? Math.pow((v + 0.055) / (1.0 + 0.055), 2.4) : v / 12.92
     }
 
@@ -285,16 +309,16 @@ class Colour {
     * @param {Gamut} [gamut=defaultGamut] - The gamut supported by the light.
     * @return {HSV} hsv - The closest matching sRGB colour.
     */
-  static xyToHsv (xy, gamut = Colour.defaultGamut) {
+  static xyToHsv (xy: [number, number], gamut: gamut = Colour.defaultGamut) {
     // Inverse Gamma correction (sRGB Companding).
-    function compand (v) {
+    function compand (v: number) {
       return v <= 0.0031308
         ? 12.92 * v
         : (1.0 + 0.055) * Math.pow(v, (1.0 / 2.4)) - 0.055
     }
 
     // Correction for negative values is missing from Philips' documentation.
-    function correctNegative () {
+    function correctNegative (): void {
       const m = Math.min(r, g, b)
       if (m < 0.0) {
         r -= m
@@ -303,7 +327,7 @@ class Colour {
       }
     }
 
-    function rescale () {
+    function rescale (): void {
       const M = Math.max(r, g, b)
       if (M > 1.0) {
         r /= M
@@ -344,7 +368,7 @@ class Colour {
     * @return {number[]} xy - The closest matching CIE 1931 colour,
     * x, y between 0.0000 and 1.0000.
     */
-  static ctToXy (ct) {
+  static ctToXy (ct: number): xy {
     const kelvin = 1000000 / ct
     let x, y
 
