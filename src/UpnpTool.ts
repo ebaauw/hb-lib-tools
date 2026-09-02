@@ -54,7 +54,13 @@ Parameters:
   Search for Sonos Zone Players.`
 
 class UpnpTool extends CommandLineTool {
-  constructor (pkgJson) {
+  pkgJson: Record<string, any>
+  upnpClient: UpnpClient | null = null
+  jsonFormatter!: JsonFormatter
+  options: Record<string, any>
+  upnp: Record<string, any>
+
+  constructor (pkgJson: Record<string, any>) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
@@ -76,11 +82,11 @@ class UpnpTool extends CommandLineTool {
       .option('T', 'deviceType', (value, key) => { this.upnp.deviceType = value })
       .option('t', 'timeout', (value, key) => {
         this.upnp.timeout = OptionParser.toInt(
-          'timeout', value, 1, 60, true
+          'timeout', value, { min: 1, max: 60, userInput: true }
         )
       })
       .flag('p', 'hue', (key) => {
-        this.upnp.filter = (message) => {
+        this.upnp.filter = (message: Record<string, string>) => {
           return /^[0-9A-F]{16}$/.test(message['hue-bridgeid'])
         }
       })
@@ -111,7 +117,7 @@ class UpnpTool extends CommandLineTool {
       const result = await this.upnpClient.search()
       this.print(this.jsonFormatter.stringify(result))
     } catch (error) {
-      await this.fatal(error)
+      await this.fatal(error as Error)
     }
   }
 
