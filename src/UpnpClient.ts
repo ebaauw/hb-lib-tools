@@ -6,12 +6,12 @@
 import { createSocket } from 'node:dgram'
 import { EventEmitter, once } from 'node:events'
 
-import { timeout } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { Logger, timeout } from 'hb-lib-tools'
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
 // Convert raw UPnP message to message object.
-function convert (rawMessage) {
-  const message = {}
+function convert (rawMessage: string): Record<string, string> {
+  const message = {} as Record<string, string>
   const lines = rawMessage.toString().trim().split('\r\n')
   if (lines && lines[0]) {
     message.status = lines[0]
@@ -36,6 +36,14 @@ function convert (rawMessage) {
   * @extends EventEmitter
   */
 class UpnpClient extends EventEmitter {
+  warn: (format: string | Error, ...args: any[]) => void
+  debug: (format: string | Error, ...args: any[]) => void
+  vdebug: (format: string | Error, ...args: any[]) => void
+  vvdebug: (format: string | Error, ...args: any[]) => void
+  private _options
+  private socket?: ReturnType<typeof createSocket>
+  private host?: string
+
   /** Create a new instance of a Universal Plug and Play client.
     * @param {object} params - Paramters.
     * @param {string} [params.deviceType='upnp:rootdevice'] - Filter on UPnP device type.
@@ -45,24 +53,23 @@ class UpnpClient extends EventEmitter {
     * @param {integer} [params.timemout=5] - Timeout (in seconds) for
     * {@link UpnpClient@search search()} to listen for responses.
     */
-  constructor (params = {}) {
+  constructor (params : {
+    deviceType?: string,
+    filter?: (message: Record<string, string>) => boolean,
+    logger?: Logger,
+    timeout?: integer
+  } = {}) {
     super()
+    this.warn = params.logger?.warn.bind(params.logger) ?? (() => {})
+    this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
+    this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
+    this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
     this._options = {
-      deviceType: 'upnp:rootdevice',
-      filter: () => { return true },
+      deviceType: params.deviceType ?? 'upnp:rootdevice',
+      filter: params.filter ?? ((message: Record<string, string>) => { return true }),
       hostname: '239.255.255.250',
       port: 1900,
-      timeout: 5
-    }
-    const optionParser = new OptionParser(this._options)
-    optionParser
-      .functionKey('filter')
-      .stringKey('deviceType', true)
-      .instanceKey('logger')
-      .intKey('timeout', 1, 60)
-      .parse(params)
-    for (const f of ['warn', 'log', 'debug', 'vdebug', 'vvdebug']) {
-      this[f] = params?.logger?.[f]?.bind(params?.logger) ?? (() => {})
+      timeout: params.timeout == null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 })
     }
   }
 
@@ -71,19 +78,19 @@ class UpnpClient extends EventEmitter {
     * A {@link UpnpClient#event:deviceAlive deviceAlive} event will be emitted
     * on each alive messagae received, that passes the filers.
     */
-  listen () {
+  listen (): void {
     if (this.socket != null) {
       this.socket.close()
     }
     this.socket = createSocket({ type: 'udp4', reuseAddr: true })
     this.socket.bind(this._options.port)
     this.socket
-      .on('error', (error) => {
+      .on('error', (error: Error) => {
         this.warn(error)
       })
       .on('listening', () => {
-        this.host = this.socket.address().address +
-          ':' + this.socket.address().port
+        this.host = this.socket!.address().address +
+          ':' + this.socket!.address().port
         this.debug(
           'upnp: listening on %s for %s',
           this.host, this._options.deviceType
@@ -91,9 +98,9 @@ class UpnpClient extends EventEmitter {
       })
       .on('close', async () => {
         this.debug('upnp: stop listening on %s', this.host)
-        this.host = null
+        this.host = undefined
         this.socket?.removeAllListeners()
-        this.socket = null
+        this.socket = undefined
       })
       .on('message', (buffer, rinfo) => {
         const rawMessage = buffer.toString().trim()
@@ -126,7 +133,7 @@ class UpnpClient extends EventEmitter {
 
   /** Stop listening for UPnP alive broadcast messages.
     */
-  stopListen () {
+  stopListen (): void {
     this.socket?.close()
   }
 
@@ -136,8 +143,8 @@ class UpnpClient extends EventEmitter {
     * response received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found devices.
     */
-  async search () {
-    const result = {}
+  async search (): Promise<Record<string, Record<string, string>>> {
+    const result = {} as Record<string, Record<string, string>>
     const socket = createSocket({ type: 'udp4' })
     let host
     const request = Buffer.from([
