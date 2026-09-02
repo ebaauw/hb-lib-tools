@@ -1,4 +1,4 @@
-// hb-lib-tools/index.js
+// hb-lib-tools/src/index.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
