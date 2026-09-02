@@ -124,7 +124,7 @@ const macOsInfo = {
 
 /** System information.
   */
-class SystemInfo implements Logger {
+class SystemInfo {
   /** Parse a text into key/value pairs.
     * @param {string} text - The text.
     * @return {Object} - The parsed text.
@@ -206,7 +206,7 @@ class SystemInfo implements Logger {
     * @param {string} cpuInfo - The contents of `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  static parseRpiCpuInfo (cpuInfo: string): Record<string, any> {
+  static parseRpiCpuInfo (cpuInfo: string): Record<string, unknown> {
     let a = /Serial\s*: ([0-9a-f]{16})/.exec(cpuInfo)
     if (a == null || a.length < 2) {
       return {}
@@ -220,16 +220,13 @@ class SystemInfo implements Logger {
     return Object.assign({ id }, SystemInfo.parseRpiRevision(revision))
   }
   
-  error: (format: string | Error, ...args: any[]) => void
-  warn: (format: string | Error, ...args: any[]) => void
-  log: (format: string | Error, ...args: any[]) => void
-  info: (format: string | Error, ...args: any[]) => void
-  debug: (format: string | Error, ...args: any[]) => void
-  vdebug: (format: string | Error, ...args: any[]) => void
-  vvdebug: (format: string | Error, ...args: any[]) => void
+  warn: (format: string | Error, ...args: unknown[]) => void
+  debug: (format: string | Error, ...args: unknown[]) => void
+  vdebug: (format: string | Error, ...args: unknown[]) => void
+  vvdebug: (format: string | Error, ...args: unknown[]) => void
 
-  hwInfo: Record<string, any> = {}
-  osInfo: Record<string, any> = {}
+  hwInfo: Record<string, unknown> = {}
+  osInfo: Record<string, unknown> = {}
   platform: string | null = null
 
   /** Creates a new instance of SystemInfo.
@@ -239,10 +236,7 @@ class SystemInfo implements Logger {
     * or of `CommandLineTool`.
     */
   constructor (params: { logger: Logger }) {
-    this.error = params.logger.error.bind(params?.logger)
     this.warn = params.logger.warn.bind(params?.logger)
-    this.log = params.logger.log.bind(params?.logger)
-    this.info = params.logger.info.bind(params?.logger)
     this.debug = params.logger.debug.bind(params?.logger)
     this.vdebug = params.logger.vdebug.bind(params?.logger)
     this.vvdebug = params.logger.vvdebug.bind(params?.logger)
@@ -296,13 +290,13 @@ class SystemInfo implements Logger {
         processor: process.arch
       }
     }
-    this.platform = this.osInfo.platform
+    this.platform = this.osInfo.platform as string
   }
 
   /** Extract serial number and hardware revision info from `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  async getRpiInfo (): Promise<Record<string, any>> {
+  async getRpiInfo (): Promise<Record<string, unknown>> {
     const cpuInfo = await this.readTextFile('/proc/cpuinfo')
     return SystemInfo.parseRpiCpuInfo(cpuInfo)
   }
@@ -310,7 +304,7 @@ class SystemInfo implements Logger {
   /** Extract OS info from /etc/os-release.
     * @return {object} - The extracted info.
     */
-  async getPiOsInfo (): Promise<Record<string, any>> {
+  async getPiOsInfo (): Promise<Record<string, unknown>> {
     const bit = (await this.exec('getconf', 'LONG_BIT')).trim()
     const text = SystemInfo.parseText(await this.readTextFile('/etc/os-release'))
     const response = {
@@ -326,7 +320,7 @@ class SystemInfo implements Logger {
   /** Extract Apple Mac hardware info from `system_profiler` command.
     * @return {object} - The extracted info.
     */
-  async getMacInfo (): Promise<Record<string, any>> {
+  async getMacInfo (): Promise<Record<string, unknown>> {
     let prettyName
     const text = SystemInfo.parseText(await this.exec('system_profiler', 'SPHardwareDataType'), ': ')
     const id = text['Serial Number (system)'] // e.g. 'LLXPXNHGTD'
@@ -372,7 +366,7 @@ class SystemInfo implements Logger {
   /** Extract macOS info from `sw_vers` command.
     * @return {object} - The extracted info.
     */
-  async getMacOsInfo (): Promise<Record<string, any>> {
+  async getMacOsInfo (): Promise<Record<string, unknown>> {
     const text = SystemInfo.parseText(await this.exec('sw_vers'), ':')
     const name = text.ProductName // e.g. 'macOS' or 'Mac OS X'
     const version = semver.coerce(text.ProductVersion)! // e.g. '12.0.1' or '12.1'
@@ -396,7 +390,7 @@ class SystemInfo implements Logger {
   /** Extract Synology info from `/etc/synoinfo.conf`
     * @return {object} - The extracted info.
     */
-  async getSynoInfo (): Promise<Record<string, any>> {
+  async getSynoInfo (): Promise<Record<string, unknown>> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/synoinfo.conf'))
     const device = text.upnpdevicetype
     const id = text.pushservice_dsserial
@@ -412,7 +406,7 @@ class SystemInfo implements Logger {
   /** Extract DSM info from `/etc/VERSION`.
     * @return {object} - The extracted info.
     */
-  async getDsmInfo (): Promise<Record<string, any>> {
+  async getDsmInfo (): Promise<Record<string, unknown>> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/VERSION'))
     const build = text.buildnumber // e.g. 42661
     const version = text.productversion // e.g. 7.1
@@ -444,7 +438,7 @@ class SystemInfo implements Logger {
     return new Promise((resolve, reject) => {
       const cmd = command + ' ' + args.join(' ')
       this.debug('exec: %s', cmd)
-      execFile(command, args, null, (error, stdout, stderr) => {
+      execFile(command, args, null, (error, stdout) => {
         if (error != null) {
           reject(error)
           return
@@ -462,7 +456,7 @@ class SystemInfo implements Logger {
   async execShell (command: string): Promise<string> {
     return new Promise((resolve, reject) => {
       this.debug('exec: %s', command)
-      exec(command, (error, stdout, stderr) => {
+      exec(command, (error, stdout) => {
         if (error != null) {
           reject(error)
           return
@@ -481,7 +475,7 @@ class SystemInfo implements Logger {
     try {
       await access(fileName)
       return true
-    } catch (error) {}
+    } catch (error) {}  
     return false
   }
 
