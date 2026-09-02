@@ -1,4 +1,4 @@
-// hb-lib-tools/lib/JsonTool.js
+// hb-lib-tools/src/JsonTool.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
@@ -13,6 +13,9 @@ import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
+
+type integer = number
+type path = string
 
 const gunzip = promisify(unzip)
 
@@ -79,16 +82,46 @@ Parameters:
   uncompressed automatically.`
 
 class JsonTool extends CommandLineTool {
-  constructor (pkgJson) {
+  private options: {
+    sortKeys: boolean,
+    noWhiteSpace: boolean,
+    jsonArray: boolean,
+    joinKeys: boolean,
+    ascii: boolean,
+    topOnly: boolean,
+    fromPath?: string,
+    maxDepth: integer,
+    leavesOnly: boolean,
+    keysOnly: boolean,
+    valuesOnly: boolean
+  }
+  private pkgJson
+  private stringList: string[]
+  private fileList: string[]
+  private jsonFormatter!: JsonFormatter
+  private n!: integer
+
+  constructor (pkgJson?: Record<string, any>) {
     super()
     this.usage = usage
-    this.options = {}
+    this.options = {
+      sortKeys: false,
+      noWhiteSpace: false,
+      jsonArray: false,
+      joinKeys: false,
+      ascii: false,
+      topOnly: false,
+      maxDepth: Number.MAX_SAFE_INTEGER as integer,
+      leavesOnly: false,
+      keysOnly: false,
+      valuesOnly: false
+    }
     this.pkgJson = pkgJson
     this.stringList = []
     this.fileList = []
   }
 
-  parseArguments () {
+  parseArguments (): void {
     const parser = new CommandLineParser(this.pkgJson)
     parser
       .help('h', 'help', help)
@@ -101,11 +134,12 @@ class JsonTool extends CommandLineTool {
       .flag('t', 'topOnly', () => { this.options.topOnly = true })
       .option('d', 'maxDepth', (value, option) => {
         this.options.maxDepth = OptionParser.toInt(
-          'maxDepth', value, 0, undefined, true)
+          'maxDepth', value, { min: 0, userInput: true }
+        )
       })
       .option('p', 'fromPath', (value, option) => {
         this.options.fromPath = OptionParser.toPath(
-          'fromPath', value, true
+          'fromPath', value, { userInput: true }
         )
       })
       .flag('l', 'leavesOnly', () => { this.options.leavesOnly = true })
@@ -116,12 +150,12 @@ class JsonTool extends CommandLineTool {
       .parse()
   }
 
-  processString (s) {
+  processString (s: string): void {
     let value
     try {
       value = JSON.parse(s)
     } catch (error) {
-      throw new Error(error.message) // Convert SyntaxError to Error.
+      throw new Error((error as Error).message) // Convert SyntaxError to Error.
     }
     const output = this.jsonFormatter.stringify(value)
     if (this.n++ > 0) {
@@ -132,7 +166,7 @@ class JsonTool extends CommandLineTool {
     }
   }
 
-  async readStdin () {
+  async readStdin (): Promise<string> {
     return new Promise((resolve, reject) => {
       let s = ''
       process.stdin.setEncoding('utf8')
@@ -153,7 +187,7 @@ class JsonTool extends CommandLineTool {
         try {
           this.processString(s)
         } catch (error) {
-          this.error(error)
+          this.error(error as Error)
         }
       })
       this.fileList.forEach(async (file) => {
@@ -161,15 +195,15 @@ class JsonTool extends CommandLineTool {
           const s = file === '-'
             ? await this.readStdin()
             : file.endsWith('.gz')
-              ? await gunzip(await readFile(file))
+              ? (await gunzip(await readFile(file))).toString('utf8')
               : await readFile(file, 'utf8')
           this.processString(s)
         } catch (error) {
-          this.error(error)
+          this.error(error as Error)
         }
       })
     } catch (error) {
-      await this.fatal(error)
+      await this.fatal(error as Error)
     }
   }
 }
