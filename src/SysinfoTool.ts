@@ -31,12 +31,12 @@ Parameters:
   Print full info in json.`
 
 class SysinfoTool extends CommandLineTool {
-  pkgJson: Record<string, any>
+  pkgJson: Record<string, unknown>
   systemInfo: SystemInfo | null = null
   json = false
-  options: Record<string, any>
+  options: Record<string, unknown>
 
-  constructor (pkgJson: Record<string, any>) {
+  constructor (pkgJson: Record<string, unknown>) {
     super()
     this.usage = usage
     this.options = {
@@ -67,8 +67,8 @@ class SysinfoTool extends CommandLineTool {
           os: this.systemInfo.osInfo
         }))
       } else {
-        this.print(this.systemInfo.hwInfo.prettyName)
-        this.print(this.systemInfo.osInfo.prettyName)
+        this.print(this.systemInfo.hwInfo.prettyName as string)
+        this.print(this.systemInfo.osInfo.prettyName as string)
       }
     } catch (error) {
       await this.fatal(error as Error)
