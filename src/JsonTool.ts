@@ -12,10 +12,7 @@ import { unzip } from 'node:zlib'
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
-
-type integer = number
-type path = string
+import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
 
 const gunzip = promisify(unzip)
 
@@ -101,7 +98,7 @@ class JsonTool extends CommandLineTool {
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
-  constructor (pkgJson?: Record<string, any>) {
+  constructor (pkgJson?: Record<string, unknown>) {
     super()
     this.usage = usage
     this.options = {
@@ -132,12 +129,12 @@ class JsonTool extends CommandLineTool {
       .flag('u', 'joinKeys', () => { this.options.joinKeys = true })
       .flag('a', 'ascii', () => { this.options.ascii = true })
       .flag('t', 'topOnly', () => { this.options.topOnly = true })
-      .option('d', 'maxDepth', (value, option) => {
+      .option('d', 'maxDepth', (value) => {
         this.options.maxDepth = OptionParser.toInt(
           'maxDepth', value, { min: 0, userInput: true }
         )
       })
-      .option('p', 'fromPath', (value, option) => {
+      .option('p', 'fromPath', (value) => {
         this.options.fromPath = OptionParser.toPath(
           'fromPath', value, { userInput: true }
         )
@@ -155,7 +152,7 @@ class JsonTool extends CommandLineTool {
     try {
       value = JSON.parse(s)
     } catch (error) {
-      throw new Error((error as Error).message) // Convert SyntaxError to Error.
+      throw new Error((error as Error).message, { cause: error }) // Convert SyntaxError to Error.
     }
     const output = this.jsonFormatter.stringify(value)
     if (this.n++ > 0) {
@@ -167,7 +164,7 @@ class JsonTool extends CommandLineTool {
   }
 
   async readStdin (): Promise<string> {
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       let s = ''
       process.stdin.setEncoding('utf8')
       process.stdin.on('data', (data) => { s += data })
