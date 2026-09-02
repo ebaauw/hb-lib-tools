@@ -1,4 +1,4 @@
-// hb-lib-tools/cli/upnp.js
+// hb-lib-tools/src/UpnpTool.ts
 //
 // Logger for UPnP device announcements.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
