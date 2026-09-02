@@ -1,11 +1,11 @@
-// hb-lib-tools/lib/CommandLineUtility.js
+// hb-lib-tools/src/CommandLineTool.ts
 //
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
 import { format } from 'node:util'
 
-import { formatError, timeout } from 'hb-lib-tools'
+import { Logger, formatError, timeout } from 'hb-lib-tools'
 import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
@@ -18,53 +18,52 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Command-line tool.
   */
-class CommandLineTool {
+class CommandLineTool implements Logger {
   /** Make text bold.
     * @param {string} text - The text.
     * @returns {string} - The bold text.
     */
-  static b (text) { return chalk.bold(text) }
+  static b (text: string) { return chalk.bold(text) }
 
   /** Make text underlined.
     * @param {string} text - The text.
     * @returns {string} - The underlined text.
     */
-  static u (text) { return chalk.underline(text) }
+  static u (text: string) { return chalk.underline(text) }
+  
+  private _options: Record<string, any>
+  private optionParser?: OptionParser
+  private _name?: string
+  private _usage?: string
 
   /** Create a new instance of a command line utility.
     */
   constructor (options = { mode: 'command' }) {
-    // We need to handle errors here, for subtype or caller won't be able
-    // to log the error/exception without our log functions.
-    try {
-      // Set program name
-      // argv[0]: node executable, argv[1]: javascript file
-      this.name = process.argv[1]
-      // Use {mode: "command"} as default for logging.
-      this._options = {
-        chalk: false,
-        debug: false,
-        program: true,
-        timestamp: false
-      }
-      // Set logging options.
-      this.setOptions(options)
+    // Set program name
+    // argv[0]: node executable, argv[1]: javascript file
+    this.name = process.argv[1] as string
+    // Use {mode: "command"} as default for logging.
+    this._options = {
+      chalk: false,
+      debug: false,
+      program: true,
+      timestamp: false
+    } as Record<string, any>
+    // Set logging options.
+    this.setOptions(options)
 
-      process
-        .on('SIGHUB', this.#onSignal.bind(this))
-        .on('SIGINT', this.#onSignal.bind(this))
-        .on('SIGTERM', this.#onSignal.bind(this))
-        .on('SIGABRT', this.#onSignal.bind(this))
-        .on('uncaughtException', async (error) => {
-          await this.fatal('uncaught exception: %s', error.stack)
-        })
-        .removeAllListeners('unhandledRejection')
-        .on('unhandledRejection', async (error) => {
-          await this.fatal('unhandled rejection: %s', error.stack)
-        })
-    } catch (error) {
-      this.#log({ label: 'fatal', chalk: chalk.bold.red }, error)
-    }
+    process
+      .on('SIGHUP', this.#onSignal.bind(this))
+      .on('SIGINT', this.#onSignal.bind(this))
+      .on('SIGTERM', this.#onSignal.bind(this))
+      .on('SIGABRT', this.#onSignal.bind(this))
+      .on('uncaughtException', async (error) => {
+        await this.fatal('uncaught exception: %s', error.stack)
+      })
+      .removeAllListeners('unhandledRejection')
+      .on('unhandledRejection', async (error: Error) => {
+        await this.fatal('unhandled rejection: %s', error.stack)
+      })
   }
 
   /** Set logging options.
@@ -78,7 +77,7 @@ class CommandLineTool {
     * @parameter {boolean} [vvdebug=false] - Output very verbose debug messages.
     * @returns {object} - The old options.
     */
-  setOptions (options) {
+  setOptions (options?: Record<string, any>) {
     if (this.optionParser == null) {
       this.optionParser = new OptionParser(this._options)
       this.optionParser
@@ -123,12 +122,12 @@ class CommandLineTool {
   async destroy () {}
 
   // Signal handler.
-  async #onSignal (signal, signalNum) {
+  async #onSignal (signal: string, signalNum: number) {
     this.log('got %s - exiting', signal)
     try {
       await this.destroy()
     } catch (error) {
-      this.error(error)
+      this.error(error as Error)
     }
     setImmediate(() => { process.exit(128 + signalNum) })
     // Prevent #onSignal() from returning.
@@ -138,8 +137,8 @@ class CommandLineTool {
   /** Program name.
     * @type {string}
     */
-  get name () { return this._name }
-  set name (name) {
+  get name () { return this._name! }
+  set name (name: string) {
     const list = name.split('/')
     this._name = list[list.length - 1]
     process.title = this._name
@@ -172,9 +171,9 @@ class CommandLineTool {
   /** Print debug message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  debug (format, ...args) {
+  debug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     if (this._options.debug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -183,62 +182,71 @@ class CommandLineTool {
   /** Print error message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  error (format, ...args) {
+  error: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     this.#log({ label: 'error', chalk: chalk.bold.red }, format, ...args)
   }
 
   /** Print error message to stderr and abort program.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  async fatal (format, ...args) {
+  fatal: (format: string | Error, ...args: any[]) => void = async (format, ...args) => {
     this.#log({ label: 'fatal', chalk: chalk.bold.red }, format, ...args)
     try {
       await this.destroy()
     } catch (error) {
-      this.error(error)
+      this.error(error as Error)
     }
     setImmediate(() => { process.exit(-1) })
     // Prevent fatal() from returning.
     await timeout(1000)
   }
 
+  /** Print info message to stderr.
+    * @param {string|Error} format - The printf-style message or an instance of
+    * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
+    * @param {...*} args - Arguments to the printf-style message.
+    */
+  info: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
+    this.#log({ chalk: chalk.green }, format, ...args)
+  }
+
   /** Print log message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  log (format, ...args) {
+  log: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     this.#log({}, format, ...args)
   }
 
   /** Print log message continuation to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  logc (format, ...args) {
+  logc: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     this.#log({ noLabel: true }, format, ...args)
   }
 
   /** Print message to stdout.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  print (format, ...args) {
+  print: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     this.#log({ noLabel: true, stdout: true }, format, ...args)
   }
 
   /** Print verbose debug message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  vdebug (format, ...args) {
+  vdebug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     if (this._options.vdebug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -247,9 +255,9 @@ class CommandLineTool {
   /** Print very verbose debug message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  vvdebug (format, ...args) {
+  vvdebug: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     if (this._options.vvdebug) {
       this.#log({ chalk: chalk.gray }, format, ...args)
     }
@@ -258,15 +266,15 @@ class CommandLineTool {
   /** Print warning message to stderr.
     * @param {string|Error} format - The printf-style message or an instance of
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
-    * @param {...string} args - Arguments to the printf-style message.
+    * @param {...*} args - Arguments to the printf-style message.
     */
-  warn (format, ...args) {
+  warn: (format: string | Error, ...args: any[]) => void = (format, ...args) => {
     this.#log({ label: 'warning', chalk: chalk.yellow }, format, ...args)
   }
 
   // Do the heavy lifting for debug(), error(), fatal(), log(), and warn(),
   // taking into account the options, and errors vs exceptions.
-  #log (params = {}, ...args) {
+  #log: (params: { noLabel?: boolean, stdout?: boolean, label?: string, chalk?: (msg: string) => string }, ...args: any[]) => void = (params, ...args) => {
     const output = params.stdout ? process.stdout : process.stderr
     let timestamp = ''
     let message = ''
@@ -274,7 +282,7 @@ class CommandLineTool {
 
     // If last argument is Error convert it to string.
     if (args.length > 0) {
-      let lastArg = args.pop()
+      let lastArg = args.pop() as string | Error
       if (lastArg instanceof Error) {
         if (lastArg.constructor.name === 'UsageError') {
           usage = true
