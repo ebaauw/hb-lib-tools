@@ -37,13 +37,13 @@ class CommandLineParser {
     parameters: { key: string, callback: (value: string, key: string) => void, optional: boolean }[]
     remaining: ((values: string[]) => void) | null
   }
-  private _packageJson: Record<string, any>
+  private _packageJson: Record<string, unknown>
 
   /** Create a new parser instance.
     * @params {string} pkgJson - The contents of `package.json` to retrieve
     * the version and homepage for the command-line tool.
     */
-  constructor (pkgJson: Record<string, any> = packageJson) {
+  constructor (pkgJson: Record<string, unknown> = packageJson) {
     this._callbacks = {
       flags: {},
       options: {},
@@ -53,7 +53,7 @@ class CommandLineParser {
     this._packageJson = pkgJson
   }
 
-  #toShort (key: any): string | null {
+  #toShort (key: unknown): string | null {
     if (key == null) {
       return null
     }
@@ -66,7 +66,7 @@ class CommandLineParser {
     return key
   }
 
-  #toLong (key: any): string | null {
+  #toLong (key: unknown): string | null {
     if (key == null) {
       return null
     }
@@ -97,7 +97,7 @@ class CommandLineParser {
         : ''
       console.log(helpText)
       console.log(`
-See ${this._packageJson.homepage.split('#')[0]} for more info.
+See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
 (${this._packageJson.name} v${this._packageJson.version}, node ${process.version}${warning})`
       )
       process.exit(0)
