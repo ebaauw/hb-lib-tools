@@ -3,11 +3,15 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
+type integer = number
+type json = null | boolean | number | string | json[] | jsonObject
+type jsonObject = { [key: string]: json }
+
 import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Library for Homebridge plugins.
   * See the {@tutorial hb-lib-tools} tutorial.
@@ -192,4 +196,5 @@ const toHexString: (value: integer | Buffer, options?: {
   return OptionParser.toIntString('value', value, { radix: 16, length })
 }
 
-export { Logger, formatError, recommendedNodeVersion, timeout, toHexString }
+export type { integer, json, jsonObject, Logger }
+export { formatError, recommendedNodeVersion, timeout, toHexString }
