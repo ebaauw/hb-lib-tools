@@ -3,11 +3,13 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+import type { integer } from 'hb-lib-tools'
+
 import { createSocket } from 'node:dgram'
 import { EventEmitter, once } from 'node:events'
 
 import { Logger, timeout } from 'hb-lib-tools'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 // Convert raw UPnP message to message object.
 function convert (rawMessage: string): Record<string, string> {
