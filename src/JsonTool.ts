@@ -5,6 +5,8 @@
 //
 // JSON formatter.
 
+import type { integer, json, jsonObject } from 'hb-lib-tools'
+
 import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { unzip } from 'node:zlib'
@@ -12,7 +14,7 @@ import { unzip } from 'node:zlib'
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 const gunzip = promisify(unzip)
 
@@ -98,7 +100,7 @@ class JsonTool extends CommandLineTool {
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
-  constructor (pkgJson?: Record<string, unknown>) {
+  constructor (pkgJson?: jsonObject) {
     super()
     this.usage = usage
     this.options = {
@@ -148,7 +150,7 @@ class JsonTool extends CommandLineTool {
   }
 
   processString (s: string): void {
-    let value
+    let value: json
     try {
       value = JSON.parse(s)
     } catch (error) {
