@@ -237,7 +237,7 @@ class CommandLineTool implements Logger {
     * [Error](https://nodejs.org/dist/latest-v14.x/docs/api/errors.html#errors_class_error).
     * @param {...*} args - Arguments to the printf-style message.
     */
-  print: (format: string | Error, ...args: unknown[]) => void = (format, ...args) => {
+  print: (format: null | string | Error, ...args: unknown[]) => void = (format, ...args) => {
     this.#log({ noLabel: true, stdout: true }, format, ...args)
   }
 
