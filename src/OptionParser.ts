@@ -3,15 +3,17 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import { EventEmitter } from 'node:events'
-import { posix } from 'node:path'
-import { isIPv4, isIPv6 } from 'node:net'
+import type { integer } from 'hb-lib-tools'
 
-type integer = number
 type hostname = string
 type Host = { hostname: hostname, port?: integer }
 type host = string
 type path = string
+
+import { EventEmitter } from 'node:events'
+import { posix } from 'node:path'
+import { isIPv4, isIPv6 } from 'node:net'
+
 
 /** User input error.
   * @hideconstructor
@@ -276,7 +278,7 @@ class OptionParser extends EventEmitter {
     const min = options.min === undefined ? -Infinity : OptionParser.toNumber('min', options.min)
     const max = options.max === undefined ? Infinity : OptionParser.toNumber('max', options.max)
     const length = options.length === undefined ? 0 : OptionParser.toInt('options.length', options.length, { min: 0, max: 32 })
-    const decimals = options.decimals === undefined ? null : OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 })
+    const decimals = options.decimals === undefined ? undefined : OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 })
     const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
     let n = OptionParser.toNumber(key, value, { min, max, userInput })
@@ -384,7 +386,7 @@ class OptionParser extends EventEmitter {
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toHostString (key: string, value: unknown, options: { userInput?: boolean } = {}): string {
+  static toHostString (key: string, value: unknown, options: { userInput?: boolean } = {}): host {
     OptionParser.toString('key', key, { nonEmpty: true })
     const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
 
@@ -531,7 +533,7 @@ class OptionParser extends EventEmitter {
     */
   static toClass (key: string, value: unknown, options: { SuperClass?: unknown } = {}): new (...args: unknown[]) => unknown {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const SuperClass = options.SuperClass === undefined ? null : OptionParser.toClass('SuperClass', options.SuperClass)
+    const SuperClass = options.SuperClass === undefined ? undefined : OptionParser.toClass('SuperClass', options.SuperClass)
 
     if (value == null) {
       throw new TypeError(`${key}: missing class value`)
@@ -561,7 +563,7 @@ class OptionParser extends EventEmitter {
     */
   static toInstance (key: string, value: unknown, options: { Class?: unknown } = {}): unknown {
     OptionParser.toString('key', key, { nonEmpty: true })
-    const Class = options.Class === undefined ? null : OptionParser.toClass('Class', options.Class)
+    const Class = options.Class === undefined ? undefined : OptionParser.toClass('Class', options.Class)
 
     if (Class != null) {
       if (value == null) {
@@ -762,7 +764,7 @@ class OptionParser extends EventEmitter {
     */
   instanceKey (key: string, Class?: unknown): OptionParser {
     key = this.#toKey(key)
-    const C = Class === undefined ? null : OptionParser.toClass('Class', Class)
+    const C = Class === undefined ? undefined : OptionParser.toClass('Class', Class)
 
     this._callbacks[key] = (value) => {
       this._object[key] = OptionParser.toInstance(key, value, { Class: C })
@@ -944,4 +946,5 @@ class OptionParser extends EventEmitter {
   }
 }
 
-export { integer, hostname, Host, host, path, OptionParser }
+export type { hostname, Host, host, path }
+export { OptionParser }
