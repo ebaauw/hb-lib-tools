@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, integer } from 'hb-lib-tools'
+import type { Logger, integer, stringMap } from 'hb-lib-tools'
 
 import { EventEmitter, once } from 'node:events'
 import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
@@ -143,7 +143,7 @@ class HttpClient extends EventEmitter {
   constructor (params: {
     ca?: string | string[]
     checkServerIdentity?: (hostname: string, cert: unknown) => Error | undefined
-    headers?: Record<string, string>
+    headers?: stringMap
     host?: string
     https?: boolean
     ipv6?: boolean
@@ -329,7 +329,7 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async get (resource = '/', headers?: Record<string, string>, suffix?: string) {
+  async get (resource = '/', headers?: stringMap, suffix?: string) {
     return this.request('GET', resource, undefined, headers, suffix)
   }
 
@@ -342,7 +342,7 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async put (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
+  async put (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
     return this.request('PUT', resource, body, headers, suffix)
   }
 
@@ -355,20 +355,20 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async post (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
+  async post (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
     return this.request('POST', resource, body, headers, suffix)
   }
 
   /** DELETE request.
     * @param {!string} resource - The resource.
     * @param {?unknown} body - The body for the request.
-    * @param {?object} headers - Additional headers for the request.
+    * @param {?stringMap} headers - Additional headers for the request.
     * @param {?string} suffix - Additional suffix to append after resource
     * e.g. for authentication of the request.
     * @return {object} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async delete (resource: string, body?: unknown, headers?: Record<string, string>, suffix?: string) {
+  async delete (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
     return this.request('DELETE', resource, body, headers, suffix)
   }
 
@@ -376,7 +376,7 @@ class HttpClient extends EventEmitter {
     * @param {string} method - The method for the request.
     * @param {!string} resource - The resource for the request.
     * @param {?unknown} body - The body for the request.
-    * @param {?object} headers - Additional headers for the request.
+    * @param {?stringMap} headers - Additional headers for the request.
     * @param {?string} suffix - Additional suffix to append after resource
     * e.g. for authentication of the request.
     * @param {?object} info - Additional key/value pairs to include in the
@@ -384,7 +384,7 @@ class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async request (method: string, resource: string, body?: unknown, headers?: Record<string, string>, suffix: string = '', info = {}) {
+  async request (method: string, resource: string, body?: unknown, headers?: stringMap, suffix: string = '', info = {}) {
     method = OptionParser.toString('method', method, { nonEmpty: true }).toUpperCase()
     if (!http.METHODS.includes(method)) {
       throw new TypeError(`${method}: invalid method`)
@@ -533,7 +533,7 @@ class HttpClient extends EventEmitter {
       })
 
     if (headers != null) {
-      headers = OptionParser.toObject('headers', headers) as Record<string, string>
+      headers = OptionParser.toObject('headers', headers) as stringMap
       for (const header in headers) {
         request.setHeader(header, headers[header])
       }
