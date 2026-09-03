@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer } from 'hb-lib-tools'
+import type { integer, map } from 'hb-lib-tools'
 
 type hostname = string
 type Host = { hostname: hostname, port?: integer }
@@ -39,7 +39,7 @@ function newTypeError (message: string, userInput = false) {
 
 type CallBackFunction = {
   (value: unknown): void
-  list?: Record<string, unknown>
+  list?: map
 }
 
 /* eslint-disable max-len */
@@ -459,7 +459,7 @@ class OptionParser extends EventEmitter {
     * @throws {TypeError} On invalid input value.
     * @throws {UserError} On error, when value was input by user.
     */
-  static toObject (key: string, value: unknown, options: { userInput?: boolean } = {}): Record<string, unknown> {
+  static toObject (key: string, value: unknown, options: { userInput?: boolean } = {}): map {
     OptionParser.toString('key', key, { nonEmpty: true })
     const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
     
@@ -469,7 +469,7 @@ class OptionParser extends EventEmitter {
     if (typeof value !== 'object' || value == null || value.constructor.name !== 'Object') {
       throw newTypeError(`${key}: not an object`, userInput)
     }
-    return value as Record<string, unknown>
+    return value as map
   }
 
   /** Casts input value to function.
@@ -583,19 +583,19 @@ class OptionParser extends EventEmitter {
     throw new TypeError(`${key}: not an instance`)
   }
 
-  _object: Record<string, unknown>
+  _object: map
   _userInput: boolean
-  _callbacks: Record<string, CallBackFunction>
+  _callbacks: { [key: string]: CallBackFunction }
 
   /** Creates a new OptionParser instance
     *
     * @param {boolean} [userInput=false] - Options were input by user.
     */
-  constructor (object: Record<string, unknown> = {}, userInput: boolean = false) {
+  constructor (object: map = {}, userInput: boolean = false) {
     super()
     this._object = object
     this._userInput = userInput
-    this._callbacks = {} as Record<string, CallBackFunction>
+    this._callbacks = {} as { [key: string]: CallBackFunction }
   }
 
   /** Checks that key is valid and not yet in use.
@@ -810,7 +810,7 @@ class OptionParser extends EventEmitter {
 
     this._callbacks[key] = (value) => {
       const array = []
-      const map: Record<string, boolean> = {}
+      const map: { [key: string]: boolean } = {}
       for (const element of OptionParser.toArray(key, value)) {
         try {
           const e = OptionParser.toString(`${key}.${element}`, element, { nonEmpty: true, userInput: this._userInput })
@@ -922,7 +922,7 @@ class OptionParser extends EventEmitter {
     * @throws {SyntaxError} Unknown option.
     * @throws {UserInputError} On error, when value was input by user.
     */
-  parse (options?: Record<string, unknown>) {
+  parse (options?: map): map {
     options = OptionParser.toObject('options', options)
 
     for (const key in options) {
