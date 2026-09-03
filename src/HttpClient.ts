@@ -3,13 +3,14 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+import type { Logger, integer } from 'hb-lib-tools'
+
 import { EventEmitter, once } from 'node:events'
 import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
 import https from 'node:https'
 import { TLSSocket } from 'tls'
 
-import type { Logger } from 'hb-lib-tools'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 class HttpError extends Error {
   request: HttpRequest
