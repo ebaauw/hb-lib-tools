@@ -5,7 +5,7 @@
 //
 // JSON formatter.
 
-import type { integer, json, jsonObject } from 'hb-lib-tools'
+import type { integer, json, jsonMap } from 'hb-lib-tools'
 
 import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
@@ -100,7 +100,7 @@ class JsonTool extends CommandLineTool {
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
-  constructor (pkgJson?: jsonObject) {
+  constructor (pkgJson?: jsonMap) {
     super()
     this.usage = usage
     this.options = {
