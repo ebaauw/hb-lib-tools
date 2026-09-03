@@ -3,6 +3,8 @@
 // Show system info.
 // Copyright © 2021-2026 Erik Baauw. All rights reserved.
 
+import type { jsonObject } from 'hb-lib-tools'
+
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
@@ -31,12 +33,12 @@ Parameters:
   Print full info in json.`
 
 class SysinfoTool extends CommandLineTool {
-  pkgJson: Record<string, unknown>
+  pkgJson: jsonObject
   systemInfo: SystemInfo | null = null
   json = false
   options: Record<string, unknown>
 
-  constructor (pkgJson: Record<string, unknown>) {
+  constructor (pkgJson: jsonObject) {
     super()
     this.usage = usage
     this.options = {
