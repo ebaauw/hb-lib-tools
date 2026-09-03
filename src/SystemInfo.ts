@@ -3,11 +3,13 @@
 // Library for Homebridge plugins.
 // Copyright © 2019-2026 Erik Baauw. All rights reserved.
 
+import type { Logger, jsonObject } from 'hb-lib-tools'
+
 import { exec, execFile } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
 import { cpus } from 'node:os'
 
-import { Logger, toHexString } from 'hb-lib-tools'
+import { toHexString } from 'hb-lib-tools'
 import { semver } from 'hb-lib-tools/semver'
 
 type integer = number
@@ -20,7 +22,7 @@ const rpiInfo = {
     3: 'Sony Japan',
     4: 'Embest',
     5: 'Stadium'
-  } as Record<integer, string>,
+  } as { [key: integer]: string },
   memorySizes: {
     0: '256MB',
     1: '512MB',
@@ -30,7 +32,7 @@ const rpiInfo = {
     5: '8GB',
     6: '16GB',
     7: '3GB' // Other?
-  } as Record<integer, string>,
+  } as { [key: integer]: string },
   models: {
     0: { name: 'A' },
     1: { name: 'B' },
@@ -57,14 +59,14 @@ const rpiInfo = {
     24: { name: 'CM5', fan: true, led: true },
     25: { name: '500', fan: true, led: true },
     26: { name: 'CM5 Lite', fan: true, led: true }
-  } as Record<integer, { name: string, led?: boolean, usb?: boolean, fan?: boolean }>,
+  } as { [key: integer]: { name: string, led?: boolean, usb?: boolean, fan?: boolean } },
   processors: {
     0: 'BCM2835',
     1: 'BCM2836',
     2: 'BCM2837',
     3: 'BCM2711',
     4: 'BCM2712'
-  } as Record<integer, string>,
+  } as { [key: integer]: string },
   oldRevisions: {
     2: { model: 'B', revision: '1.0', memory: '256MB', manufacturer: 'Egoman' },
     3: { model: 'B', revision: '1.0', memory: '256MB', manufacturer: 'Egoman' },
@@ -83,36 +85,36 @@ const rpiInfo = {
     19: { model: 'B+', revision: '1.2', memory: '512MB', manufacturer: 'Embest', led: true, usb: true },
     20: { model: 'CM1', revision: '1.0', memory: '512MB', manufacturer: 'Embest', led: true },
     21: { model: 'A+', revision: '1.1', memory: '256MB/512MB', manufacturer: 'Embest', led: true }
-  } as Record<integer, { model: string, revision: string, memory: string, manufacturer: string, led?: boolean, usb?: boolean }>
+  } as { [key: integer]: { model: string, revision: string, memory: string, manufacturer: string, led?: boolean, usb?: boolean } }
 }
 
 // See: https://en.wikipedia.org/wiki/MacOS_version_history
 const macOsInfo = {
   versionNames: {
     '10.0': 'Cheetah',
-    10.1: 'Puma',
-    10.2: 'Jaguar',
-    10.3: 'Panther',
-    10.4: 'Tiger',
-    10.5: 'Leopard',
-    10.6: 'Snow Leopard',
-    10.7: 'Lion',
-    10.8: 'Mountain Lion',
-    10.9: 'Mavericks',
+    '10.1': 'Puma',
+    '10.2': 'Jaguar',
+    '10.3': 'Panther',
+    '10.4': 'Tiger',
+    '10.5': 'Leopard',
+    '10.6': 'Snow Leopard',
+    '10.7': 'Lion',
+    '10.8': 'Mountain Lion',
+    '10.9': 'Mavericks',
     '10.10': 'Yosemite',
-    10.11: 'El Capitan',
-    10.12: 'Sierra',
-    10.13: 'High Sierra',
-    10.14: 'Mojave',
-    10.15: 'Catalina',
-    11: 'Big Sur',
-    12: 'Monterey',
-    13: 'Ventura',
-    14: 'Sonoma',
-    15: 'Sequoia',
-    26: 'Tahoe',
-    27: 'Golden Gate'
-  } as Record<string, string>
+    '10.11': 'El Capitan',
+    '10.12': 'Sierra',
+    '10.13': 'High Sierra',
+    '10.14': 'Mojave',
+    '10.15': 'Catalina',
+    '11': 'Big Sur',
+    '12': 'Monterey',
+    '13'  : 'Ventura',
+    '14': 'Sonoma',
+    '15': 'Sequoia',
+    '26': 'Tahoe',
+    '27': 'Golden Gate'
+  } as { [key: string]: string }
 }
 
 /** System information.
@@ -129,7 +131,7 @@ class SystemInfo {
     * @param {string} text - The text.
     * @return {Object} - The parsed text.
     */
-  static parseText (text: string, delimiter = '='): Record<string, string> {
+  static parseText (text: string, delimiter = '='): { [key: string]: string } {
     const response: Record<string, string> = {}
     const lines = text?.split('\n') ?? []
     for (const line of lines) {
@@ -145,18 +147,32 @@ class SystemInfo {
     * @param {int} revision - The Raspberry Pi hardware revision.
     * @return {Object} response - The parsed revision information.
     */
-  static parseRpiRevision (revision: integer) {
+  static parseRpiRevision (revision: integer): jsonObject {
     revision &= 0x00FFFFFF
-    const response = {
+    const response: {
+      gpioMask: number,
+      gpioMaskSerial: number,
+      isRpi: boolean,
+      manufacturer: string | null,
+      memory: string | null,
+      model: string | null,
+      modelRevision: string | null,
+      prettyName: string,
+      processor: string | null,
+      supportsFan: boolean,
+      supportsPowerLed: boolean,
+      supportsUsbPower: boolean,
+      revision: string
+    } = {
       gpioMask: 0,
       gpioMaskSerial: (1 << 15) | (1 << 14),
       isRpi: true,
-      manufacturer: null as string | null,
-      memory: null as string | null,
-      model: null as string | null,
-      modelRevision: null as string | null,
+      manufacturer: null,
+      memory: null,
+      model: null,
+      modelRevision: null,
       prettyName: 'Raspberry Pi',
-      processor: null as string | null,
+      processor: null,
       supportsFan: false,
       supportsPowerLed: false,
       supportsUsbPower: false,
@@ -206,7 +222,7 @@ class SystemInfo {
     * @param {string} cpuInfo - The contents of `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  static parseRpiCpuInfo (cpuInfo: string): Record<string, unknown> {
+  static parseRpiCpuInfo (cpuInfo: string): jsonObject {
     let a = /Serial\s*: ([0-9a-f]{16})/.exec(cpuInfo)
     if (a == null || a.length < 2) {
       return {}
@@ -225,8 +241,8 @@ class SystemInfo {
   vdebug: (format: string | Error, ...args: unknown[]) => void
   vvdebug: (format: string | Error, ...args: unknown[]) => void
 
-  hwInfo: Record<string, unknown> = {}
-  osInfo: Record<string, unknown> = {}
+  hwInfo: jsonObject = {}
+  osInfo: jsonObject = {}
   platform: string | null = null
 
   /** Creates a new instance of SystemInfo.
@@ -296,7 +312,7 @@ class SystemInfo {
   /** Extract serial number and hardware revision info from `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  async getRpiInfo (): Promise<Record<string, unknown>> {
+  async getRpiInfo (): Promise<jsonObject> {
     const cpuInfo = await this.readTextFile('/proc/cpuinfo')
     return SystemInfo.parseRpiCpuInfo(cpuInfo)
   }
@@ -304,7 +320,7 @@ class SystemInfo {
   /** Extract OS info from /etc/os-release.
     * @return {object} - The extracted info.
     */
-  async getPiOsInfo (): Promise<Record<string, unknown>> {
+  async getPiOsInfo (): Promise<jsonObject> {
     const bit = (await this.exec('getconf', 'LONG_BIT')).trim()
     const text = SystemInfo.parseText(await this.readTextFile('/etc/os-release'))
     const response = {
@@ -320,7 +336,7 @@ class SystemInfo {
   /** Extract Apple Mac hardware info from `system_profiler` command.
     * @return {object} - The extracted info.
     */
-  async getMacInfo (): Promise<Record<string, unknown>> {
+  async getMacInfo (): Promise<jsonObject> {
     let prettyName
     const text = SystemInfo.parseText(await this.exec('system_profiler', 'SPHardwareDataType'), ': ')
     const id = text['Serial Number (system)'] // e.g. 'LLXPXNHGTD'
@@ -366,10 +382,10 @@ class SystemInfo {
   /** Extract macOS info from `sw_vers` command.
     * @return {object} - The extracted info.
     */
-  async getMacOsInfo (): Promise<Record<string, unknown>> {
+  async getMacOsInfo (): Promise<jsonObject> {
     const text = SystemInfo.parseText(await this.exec('sw_vers'), ':')
     const name = text.ProductName // e.g. 'macOS' or 'Mac OS X'
-    const version = semver.coerce(text.ProductVersion)! // e.g. '12.0.1' or '12.1'
+    const version = semver.coerce(text.ProductVersion)!.toString() // e.g. '12.0.1' or '12.1'
     const build = text.BuildVersion // e.g. '21A559'
     let v = '' + semver.major(version)
     if (v === '10') {
@@ -390,7 +406,7 @@ class SystemInfo {
   /** Extract Synology info from `/etc/synoinfo.conf`
     * @return {object} - The extracted info.
     */
-  async getSynoInfo (): Promise<Record<string, unknown>> {
+  async getSynoInfo (): Promise<jsonObject> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/synoinfo.conf'))
     const device = text.upnpdevicetype
     const id = text.pushservice_dsserial
@@ -406,7 +422,7 @@ class SystemInfo {
   /** Extract DSM info from `/etc/VERSION`.
     * @return {object} - The extracted info.
     */
-  async getDsmInfo (): Promise<Record<string, unknown>> {
+  async getDsmInfo (): Promise<jsonObject> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/VERSION'))
     const build = text.buildnumber // e.g. 42661
     const version = text.productversion // e.g. 7.1
