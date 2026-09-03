@@ -3,12 +3,14 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+import type { integer, jsonObject } from 'hb-lib-tools'
+
 import { EventEmitter } from 'node:events'
 
 import Bonjour from 'bonjour-service'
 
 import { Logger, timeout } from 'hb-lib-tools'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 /** Multicast DNS (Bonjour) client.
   * <br>See {@link MdnsClient}.
@@ -39,7 +41,7 @@ class MdnsClient extends EventEmitter {
     * {@link MdnsClient@search search()} to listen for responses.
     */
   constructor (params: {
-    filter?: (message: Record<string, unknown>) => boolean,
+    filter?: (message: jsonObject) => boolean,
     logger: Logger,
     serviceType?: string, 
     timeout?: integer
@@ -49,7 +51,7 @@ class MdnsClient extends EventEmitter {
     this.vdebug = params.logger.vdebug.bind(params.logger)
     this.vvdebug = params.logger.vvdebug.bind(params.logger)
     this._options = {
-      filter: params.filter ?? (() => { return true }) as (message: Record<string, unknown>) => boolean,
+      filter: params.filter ?? (() => { return true }) as (message: jsonObject) => boolean,
       host: '224.0.0.251:5353',
       timeout: params.timeout === null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 }),
       serviceType: params.serviceType ?? 'hap'
@@ -73,7 +75,7 @@ class MdnsClient extends EventEmitter {
     this.browser = this.bonjour.find({ type: this._options.serviceType })
     this.browser.on('up', (message) => {
       // this.vvvdebug('mdns: found %j: %j', message.fqdn, message)
-      if (!this._options.filter(message as unknown as Record<string, unknown>)) {
+      if (!this._options.filter(message as unknown as jsonObject)) {
         return
       }
       this.vvdebug('mdns: found %j: %j', message.fqdn, message)
@@ -107,10 +109,10 @@ class MdnsClient extends EventEmitter {
     * service up announcement received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found services.
     */
-  async search (): Promise<Record<string, Record<string, unknown>>> {
-    const result = {} as Record<string, Record<string, unknown>>
+  async search (): Promise<jsonObject> {
+    const result: jsonObject = {}
 
-    function addResult (address: string, message: Record<string, unknown>): void {
+    function addResult (address: string, message: jsonObject): void {
       result[message.fqdn as string] = message
     }
 
