@@ -3,7 +3,12 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import { integer, path } from 'hb-lib-tools/OptionParser'
+import type { integer, json, jsonObject } from 'hb-lib-tools'
+import type { path } from 'hb-lib-tools/OptionParser'
+
+const isSimple = (value: json): boolean => {
+  return value === null || ['boolean', 'number', 'string'].includes(typeof value)
+}
 
 /** JSON formatter.
   * <br>See {@link JsonFormatter}.
@@ -18,7 +23,7 @@ import { integer, path } from 'hb-lib-tools/OptionParser'
   * This class is the engine under the `json` command-line tool.
   */
 class JsonFormatter {
-  private options
+  private readonly options
 
   /** Create a new instance of a JSON formatter.
     *
@@ -76,7 +81,7 @@ class JsonFormatter {
     this.options = {
       ascii: params.ascii ?? false,
       fromPath: params.fromPath,
-      jsonArray: params.jsonArray ?? false,
+      jsonArray: params.jsonArray ?? false as boolean,
       joinKeys: params.joinKeys ?? false,
       keysOnly: params.keysOnly ?? false,
       leavesOnly: params.leavesOnly ?? false,
@@ -98,29 +103,26 @@ class JsonFormatter {
     }
   }
 
-  #forEach (value: unknown, callback: (keys: string[], value: unknown) => void): void {
-    const forEach: (keys: string[], value: unknown, depth: number) => void = (keys, value, depth) => {
-      const isCollection = (typeof (value) === 'object' && value != null)
-
-      if (value === undefined) {
-        return
-      }
+  #forEach (value: json, callback: (keys: string[], value: json) => void): void {
+    const forEach: (keys: string[], value: json, depth: number) => void = (keys, value, depth) => {
       if (
-        !isCollection ||
+        isSimple(value) &&
         (!this.options.leavesOnly && (!this.options.topOnly || depth === 1))
       ) {
         callback(keys, value)
+        return
       }
       if (
-        isCollection && (!this.options.topOnly || depth === 0) &&
+        (!this.options.topOnly || depth === 0) &&
         depth !== this.options.maxDepth
       ) {
+        value = value as jsonObject
         const list = Object.keys(value)
         if (this.options.sortKeys && !Array.isArray(value)) {
           list.sort()
         }
         for (const key of list) {
-          forEach(keys.concat([key]), (value as Record<string, unknown>)[key], depth + 1)
+          forEach(keys.concat([key]), value[key], depth + 1)
         }
       }
     }
@@ -128,16 +130,16 @@ class JsonFormatter {
     forEach([], value, 0)
   }
 
-  #map (value: unknown, callback: (keys: string[], value: unknown) => unknown): unknown[] {
-    const array: unknown[] = []
+  #map (value: json, callback: (keys: string[], value: json) => json): json[] {
+    const array: json[] = []
     this.#forEach(value, (keys, value) => {
       array.push(callback(keys, value))
     })
     return array
   }
 
-  #format (value: unknown, maxDepth: integer = this.options.maxDepth, withIndent: string = '  '): string {
-    const format = (value: unknown, depth: integer, indent: string): string => {
+  #format (value: json, maxDepth: integer = this.options.maxDepth, withIndent: string = '  '): string {
+    const format = (value: json, depth: integer, indent: string): string => {
       const noNewline = this.options.noWhiteSpace || (maxDepth != null && depth >= maxDepth)
       const nl = this.options.noWhiteSpace ? '' : noNewline ? ' ' : '\n'
       const sp = this.options.noWhiteSpace ? '' : ' '
@@ -145,21 +147,19 @@ class JsonFormatter {
       const wi = noNewline ? '' : withIndent
       const id = noNewline ? '' : indent
 
-      if (value === undefined) {
-        return ''
-      }
-      if (typeof (value) !== 'object' || value == null) {
+      if (isSimple(value)) {
         return JSON.stringify(value)
       }
+      value = value as jsonObject
       const array = []
       const list = Object.keys(value)
       if (this.options.sortKeys && !Array.isArray(value)) {
         list.sort()
       }
       for (const key of list) {
-        if ((value as Record<string, unknown>)[key] !== undefined) {
+        if (value[key] !== undefined) {
           const k = Array.isArray(value) ? '' : `"${key}":${sp}`
-          const v = format((value as Record<string, unknown>)[key], depth + 1, `${wi}${id}`)
+          const v = format(value[key], depth + 1, `${wi}${id}`)
           array.push(k + v)
         }
       }
@@ -177,21 +177,21 @@ class JsonFormatter {
     * @param {*} value - The JavaScript value.
     * @return {string} json - The formatted JSON string.
     */
-  stringify (value: unknown): string {
+  stringify (value: json): string | null{
     if (this.options.fromPath != null) {
       const a = this.options.fromPath!.slice(1).split('/')
       for (const key of a) {
-        if (typeof (value) === 'object' && value != null) {
-          value = (value as Record<string, unknown>)[key]
+        if (typeof value === 'object' && value != null) {
+          value = (value as jsonObject)[key]
         } else {
-          value = undefined
+          return null
         }
       }
     }
     if (!this.options.jsonArray) {
       return this.#format(value)
     }
-    const array = this.#map(value, (keys, value) => {
+    const array = this.#map(value, (keys: string[], value: json) => {
       if (this.options.ascii) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return this.#format(value) }
@@ -199,7 +199,7 @@ class JsonFormatter {
       } else if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
-        const obj = {} as Record<string, unknown>
+        const obj: jsonObject = {}
         obj[`/${keys.join('/')}`] = value
         return obj
       } else {
