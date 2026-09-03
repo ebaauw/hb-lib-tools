@@ -5,11 +5,13 @@
 //
 // Logger for HomeKit accessory announcements.
 
+import type { integer, jsonObject } from 'hb-lib-tools'
+
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
-import { integer, OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 const { b, u } = CommandLineTool
 
@@ -48,12 +50,12 @@ Parameters:
   Search for ${u('timeout')} seconds instead of default ${b('5')}.`
 
 class HapTool extends CommandLineTool {
-  pkgJson: Record<string, unknown>
+  pkgJson: jsonObject
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
   options: Record<string, unknown>
 
-  constructor (pkgJson: Record<string, unknown>) {
+  constructor (pkgJson: jsonObject) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
