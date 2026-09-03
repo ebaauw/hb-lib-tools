@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
-import type { jsonObject } from 'hb-lib-tools'
+import type { jsonMap } from 'hb-lib-tools'
 
 import { createRequire } from 'node:module'
 
@@ -12,7 +12,7 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 
 const require = createRequire(import.meta.url)
-const packageJson: jsonObject = require('../package.json')
+const packageJson: jsonMap = require('../package.json')
 
 /** Usage error.
   * @hideconstructor
@@ -39,13 +39,13 @@ class CommandLineParser {
     parameters: { key: string, callback: (value: string, key: string) => void, optional: boolean }[]
     remaining: ((values: string[]) => void) | null
   }
-  private _packageJson: jsonObject
+  private _packageJson: jsonMap
 
   /** Create a new parser instance.
-    * @param {jsonObject} pkgJson - The contents of `package.json` to retrieve
+    * @param {jsonMap} pkgJson - The contents of `package.json` to retrieve
     * the version and homepage for the command-line tool.
     */
-  constructor (pkgJson: jsonObject = packageJson) {
+  constructor (pkgJson: jsonMap = packageJson) {
     this._callbacks = {
       flags: {},
       options: {},
