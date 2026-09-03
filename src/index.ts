@@ -4,8 +4,10 @@
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
 type integer = number
-type json = null | boolean | number | string | json[] | jsonObject
-type jsonObject = { [key: string]: json }
+type map = { [key: string]: unknown }
+type stringMap = { [key: string]: string }
+type json = null | boolean | number | string | json[] | jsonMap
+type jsonMap = { [key: string]: json }
 
 import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
@@ -196,5 +198,5 @@ const toHexString: (value: integer | Buffer, options?: {
   return OptionParser.toIntString('value', value, { radix: 16, length })
 }
 
-export type { integer, json, jsonObject, Logger }
+export type { integer, json, jsonMap, map, stringMap, Logger }
 export { formatError, recommendedNodeVersion, timeout, toHexString }
