@@ -3,9 +3,11 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+import type { map, Logger } from 'hb-lib-tools'
+
 import { format } from 'node:util'
 
-import { Logger, formatError, timeout } from 'hb-lib-tools'
+import { formatError, timeout } from 'hb-lib-tools'
 import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
@@ -31,7 +33,7 @@ class CommandLineTool implements Logger {
     */
   static u (text: string) { return chalk.underline(text) }
   
-  private _options: Record<string, unknown>
+  private _options: map
   private optionParser?: OptionParser
   private _name?: string
   private _usage?: string
@@ -48,7 +50,7 @@ class CommandLineTool implements Logger {
       debug: false,
       program: true,
       timestamp: false
-    } as Record<string, unknown>
+    } as map
     // Set logging options.
     this.setOptions(options)
 
@@ -77,7 +79,7 @@ class CommandLineTool implements Logger {
     * @parameter {boolean} [vvdebug=false] - Output very verbose debug messages.
     * @returns {object} - The old options.
     */
-  setOptions (options?: Record<string, unknown>) {
+  setOptions (options?: map) {
     if (this.optionParser == null) {
       this.optionParser = new OptionParser(this._options)
       this.optionParser
