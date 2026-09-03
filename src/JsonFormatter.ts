@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer, json, jsonObject } from 'hb-lib-tools'
+import type { integer, json, jsonMap } from 'hb-lib-tools'
 import type { path } from 'hb-lib-tools/OptionParser'
 
 const isSimple = (value: json): boolean => {
@@ -116,7 +116,7 @@ class JsonFormatter {
         (!this.options.topOnly || depth === 0) &&
         depth !== this.options.maxDepth
       ) {
-        value = value as jsonObject
+        value = value as jsonMap
         const list = Object.keys(value)
         if (this.options.sortKeys && !Array.isArray(value)) {
           list.sort()
@@ -150,7 +150,7 @@ class JsonFormatter {
       if (isSimple(value)) {
         return JSON.stringify(value)
       }
-      value = value as jsonObject
+      value = value as jsonMap
       const array = []
       const list = Object.keys(value)
       if (this.options.sortKeys && !Array.isArray(value)) {
@@ -182,7 +182,7 @@ class JsonFormatter {
       const a = this.options.fromPath!.slice(1).split('/')
       for (const key of a) {
         if (typeof value === 'object' && value != null) {
-          value = (value as jsonObject)[key]
+          value = (value as jsonMap)[key]
         } else {
           return null
         }
@@ -199,7 +199,7 @@ class JsonFormatter {
       } else if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
-        const obj: jsonObject = {}
+        const obj: jsonMap = {}
         obj[`/${keys.join('/')}`] = value
         return obj
       } else {
