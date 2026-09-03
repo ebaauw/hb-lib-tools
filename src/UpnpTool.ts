@@ -3,7 +3,7 @@
 // Logger for UPnP device announcements.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { jsonObject } from 'hb-lib-tools'
+import type { jsonMap, map, stringMap } from 'hb-lib-tools'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
@@ -56,13 +56,13 @@ Parameters:
   Search for Sonos Zone Players.`
 
 class UpnpTool extends CommandLineTool {
-  pkgJson: jsonObject
+  pkgJson: jsonMap
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
-  options: { [key: string]: unknown }
-  upnp: { [key: string]: unknown }
+  options: map
+  upnp: map
 
-  constructor (pkgJson: jsonObject) {
+  constructor (pkgJson: jsonMap) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
@@ -88,7 +88,7 @@ class UpnpTool extends CommandLineTool {
         )
       })
       .flag('p', 'hue', () => {
-        this.upnp.filter = (message: Record<string, string>) => {
+        this.upnp.filter = (message: stringMap) => {
           return /^[0-9A-F]{16}$/.test(message['hue-bridgeid'])
         }
       })
