@@ -3,6 +3,8 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
+import type { jsonObject } from 'hb-lib-tools'
+
 import { createRequire } from 'node:module'
 
 import { recommendedNodeVersion } from 'hb-lib-tools'
@@ -10,7 +12,7 @@ import { OptionParser } from 'hb-lib-tools/OptionParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 
 const require = createRequire(import.meta.url)
-const packageJson = require('../package.json')
+const packageJson: jsonObject = require('../package.json')
 
 /** Usage error.
   * @hideconstructor
@@ -32,18 +34,18 @@ class CommandLineParser {
   static get UsageError () { return UsageError }
 
   private _callbacks: {
-    flags: Record<string, (key: string) => void>
-    options: Record<string, (value: string, key: string) => void>
+    flags: { [key: string]: (key: string) => void }
+    options: { [key: string]: (value: string, key: string) => void }
     parameters: { key: string, callback: (value: string, key: string) => void, optional: boolean }[]
     remaining: ((values: string[]) => void) | null
   }
-  private _packageJson: Record<string, unknown>
+  private _packageJson: jsonObject
 
   /** Create a new parser instance.
-    * @params {string} pkgJson - The contents of `package.json` to retrieve
+    * @param {jsonObject} pkgJson - The contents of `package.json` to retrieve
     * the version and homepage for the command-line tool.
     */
-  constructor (pkgJson: Record<string, unknown> = packageJson) {
+  constructor (pkgJson: jsonObject = packageJson) {
     this._callbacks = {
       flags: {},
       options: {},
