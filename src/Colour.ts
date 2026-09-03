@@ -104,7 +104,7 @@ const gamutByManufacturer = {
       b: [0.1530, 0.0480]
     }
   }
-} as Record<string, gamut | Record<string, gamut>>
+} as { [key: string]: gamut | { [key: string]: gamut } }
 
 gamutByManufacturer['Signify Netherlands B.V.'] = gamutByManufacturer.Philips
 
