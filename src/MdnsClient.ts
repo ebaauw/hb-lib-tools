@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer, jsonObject } from 'hb-lib-tools'
+import type { integer, jsonMap } from 'hb-lib-tools'
 
 import { EventEmitter } from 'node:events'
 
@@ -41,7 +41,7 @@ class MdnsClient extends EventEmitter {
     * {@link MdnsClient@search search()} to listen for responses.
     */
   constructor (params: {
-    filter?: (message: jsonObject) => boolean,
+    filter?: (message: jsonMap) => boolean,
     logger: Logger,
     serviceType?: string, 
     timeout?: integer
@@ -51,7 +51,7 @@ class MdnsClient extends EventEmitter {
     this.vdebug = params.logger.vdebug.bind(params.logger)
     this.vvdebug = params.logger.vvdebug.bind(params.logger)
     this._options = {
-      filter: params.filter ?? (() => { return true }) as (message: jsonObject) => boolean,
+      filter: params.filter ?? (() => { return true }) as (message: jsonMap) => boolean,
       host: '224.0.0.251:5353',
       timeout: params.timeout === null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 }),
       serviceType: params.serviceType ?? 'hap'
@@ -75,7 +75,7 @@ class MdnsClient extends EventEmitter {
     this.browser = this.bonjour.find({ type: this._options.serviceType })
     this.browser.on('up', (message) => {
       // this.vvvdebug('mdns: found %j: %j', message.fqdn, message)
-      if (!this._options.filter(message as unknown as jsonObject)) {
+      if (!this._options.filter(message as unknown as jsonMap)) {
         return
       }
       this.vvdebug('mdns: found %j: %j', message.fqdn, message)
@@ -109,10 +109,10 @@ class MdnsClient extends EventEmitter {
     * service up announcement received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found services.
     */
-  async search (): Promise<jsonObject> {
-    const result: jsonObject = {}
+  async search (): Promise<jsonMap> {
+    const result: jsonMap = {}
 
-    function addResult (address: string, message: jsonObject): void {
+    function addResult (address: string, message: jsonMap): void {
       result[message.fqdn as string] = message
     }
 
