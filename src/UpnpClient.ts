@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer } from 'hb-lib-tools'
+import type { integer, stringMap } from 'hb-lib-tools'
 
 import { createSocket } from 'node:dgram'
 import { EventEmitter, once } from 'node:events'
@@ -12,8 +12,8 @@ import { Logger, timeout } from 'hb-lib-tools'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
 // Convert raw UPnP message to message object.
-function convert (rawMessage: string): Record<string, string> {
-  const message = {} as Record<string, string>
+function convert (rawMessage: string): stringMap {
+  const message = {} as stringMap
   const lines = rawMessage.toString().trim().split('\r\n')
   if (lines && lines[0]) {
     message.status = lines[0]
@@ -57,7 +57,7 @@ class UpnpClient extends EventEmitter {
     */
   constructor (params : {
     deviceType?: string,
-    filter?: (message: Record<string, string>) => boolean,
+    filter?: (message: stringMap) => boolean,
     logger?: Logger,
     timeout?: integer
   } = {}) {
@@ -68,7 +68,7 @@ class UpnpClient extends EventEmitter {
     this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
     this._options = {
       deviceType: params.deviceType ?? 'upnp:rootdevice',
-      filter: params.filter ?? (() => { return true }) as (message: Record<string, string>) => boolean,
+      filter: params.filter ?? (() => { return true }) as (message: stringMap) => boolean,
       hostname: '239.255.255.250',
       port: 1900,
       timeout: params.timeout == null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 })
@@ -145,8 +145,8 @@ class UpnpClient extends EventEmitter {
     * response received, that passes the filters.
     * @returns {Promise} Promise that resolves to an object with the found devices.
     */
-  async search (): Promise<Record<string, Record<string, string>>> {
-    const result = {} as Record<string, Record<string, string>>
+  async search (): Promise<{ [key: string]: stringMap }> {
+    const result = {} as { [key: string]: stringMap }
     const socket = createSocket({ type: 'udp4' })
     let host
     const request = Buffer.from([
