@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2019-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, jsonObject } from 'hb-lib-tools'
+import type { Logger, jsonMap, stringMap } from 'hb-lib-tools'
 
 import { exec, execFile } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
@@ -114,7 +114,7 @@ const macOsInfo = {
     '15': 'Sequoia',
     '26': 'Tahoe',
     '27': 'Golden Gate'
-  } as { [key: string]: string }
+  } as stringMap
 }
 
 /** System information.
@@ -131,8 +131,8 @@ class SystemInfo {
     * @param {string} text - The text.
     * @return {Object} - The parsed text.
     */
-  static parseText (text: string, delimiter = '='): { [key: string]: string } {
-    const response: Record<string, string> = {}
+  static parseText (text: string, delimiter = '='): stringMap {
+    const response: stringMap = {}
     const lines = text?.split('\n') ?? []
     for (const line of lines) {
       const fields = line.split(delimiter)
@@ -147,7 +147,7 @@ class SystemInfo {
     * @param {int} revision - The Raspberry Pi hardware revision.
     * @return {Object} response - The parsed revision information.
     */
-  static parseRpiRevision (revision: integer): jsonObject {
+  static parseRpiRevision (revision: integer): jsonMap {
     revision &= 0x00FFFFFF
     const response: {
       gpioMask: number,
@@ -222,7 +222,7 @@ class SystemInfo {
     * @param {string} cpuInfo - The contents of `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  static parseRpiCpuInfo (cpuInfo: string): jsonObject {
+  static parseRpiCpuInfo (cpuInfo: string): jsonMap {
     let a = /Serial\s*: ([0-9a-f]{16})/.exec(cpuInfo)
     if (a == null || a.length < 2) {
       return {}
@@ -241,8 +241,8 @@ class SystemInfo {
   vdebug: (format: string | Error, ...args: unknown[]) => void
   vvdebug: (format: string | Error, ...args: unknown[]) => void
 
-  hwInfo: jsonObject = {}
-  osInfo: jsonObject = {}
+  hwInfo: jsonMap = {}
+  osInfo: jsonMap = {}
   platform: string | null = null
 
   /** Creates a new instance of SystemInfo.
@@ -312,7 +312,7 @@ class SystemInfo {
   /** Extract serial number and hardware revision info from `/proc/cpuinfo`.
     * @return {object} - The extracted info.
     */
-  async getRpiInfo (): Promise<jsonObject> {
+  async getRpiInfo (): Promise<jsonMap> {
     const cpuInfo = await this.readTextFile('/proc/cpuinfo')
     return SystemInfo.parseRpiCpuInfo(cpuInfo)
   }
@@ -320,7 +320,7 @@ class SystemInfo {
   /** Extract OS info from /etc/os-release.
     * @return {object} - The extracted info.
     */
-  async getPiOsInfo (): Promise<jsonObject> {
+  async getPiOsInfo (): Promise<jsonMap> {
     const bit = (await this.exec('getconf', 'LONG_BIT')).trim()
     const text = SystemInfo.parseText(await this.readTextFile('/etc/os-release'))
     const response = {
@@ -336,7 +336,7 @@ class SystemInfo {
   /** Extract Apple Mac hardware info from `system_profiler` command.
     * @return {object} - The extracted info.
     */
-  async getMacInfo (): Promise<jsonObject> {
+  async getMacInfo (): Promise<jsonMap> {
     let prettyName
     const text = SystemInfo.parseText(await this.exec('system_profiler', 'SPHardwareDataType'), ': ')
     const id = text['Serial Number (system)'] // e.g. 'LLXPXNHGTD'
@@ -382,7 +382,7 @@ class SystemInfo {
   /** Extract macOS info from `sw_vers` command.
     * @return {object} - The extracted info.
     */
-  async getMacOsInfo (): Promise<jsonObject> {
+  async getMacOsInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.exec('sw_vers'), ':')
     const name = text.ProductName // e.g. 'macOS' or 'Mac OS X'
     const version = semver.coerce(text.ProductVersion)!.toString() // e.g. '12.0.1' or '12.1'
@@ -406,7 +406,7 @@ class SystemInfo {
   /** Extract Synology info from `/etc/synoinfo.conf`
     * @return {object} - The extracted info.
     */
-  async getSynoInfo (): Promise<jsonObject> {
+  async getSynoInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/synoinfo.conf'))
     const device = text.upnpdevicetype
     const id = text.pushservice_dsserial
@@ -422,7 +422,7 @@ class SystemInfo {
   /** Extract DSM info from `/etc/VERSION`.
     * @return {object} - The extracted info.
     */
-  async getDsmInfo (): Promise<jsonObject> {
+  async getDsmInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/VERSION'))
     const build = text.buildnumber // e.g. 42661
     const version = text.productversion // e.g. 7.1
