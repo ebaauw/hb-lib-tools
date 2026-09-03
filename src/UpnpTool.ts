@@ -3,6 +3,8 @@
 // Logger for UPnP device announcements.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+import type { jsonObject } from 'hb-lib-tools'
+
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
@@ -54,13 +56,13 @@ Parameters:
   Search for Sonos Zone Players.`
 
 class UpnpTool extends CommandLineTool {
-  pkgJson: Record<string, unknown>
+  pkgJson: jsonObject
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
-  options: Record<string, unknown>
-  upnp: Record<string, unknown>
+  options: { [key: string]: unknown }
+  upnp: { [key: string]: unknown }
 
-  constructor (pkgJson: Record<string, unknown>) {
+  constructor (pkgJson: jsonObject) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
