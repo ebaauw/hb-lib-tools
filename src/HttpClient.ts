@@ -12,7 +12,7 @@ import { TLSSocket } from 'tls'
 
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
-class HttpError extends Error {
+export class HttpError extends Error {
   request: HttpRequest
   statusCode?: integer
   statusMessage?: string
@@ -26,7 +26,7 @@ class HttpError extends Error {
   }
 }
 
-class HttpRequest {
+export class HttpRequest {
   name: string
   id: integer
   method: string
@@ -60,7 +60,7 @@ class HttpRequest {
   }
 }
 
-class HttpResponse {
+export class HttpResponse {
   request: HttpRequest
   statusCode?: integer
   statusMessage?: string
@@ -85,16 +85,9 @@ class HttpResponse {
 }
 
 /** HTTP client.
-  * <br>See {@link HttpClient}.
-  * @name HttpClient
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
-
-/** HTTP client.
   * @extends EventEmitter
   */
-class HttpClient extends EventEmitter {
+export class HttpClient extends EventEmitter {
   static get HttpError () { return HttpError }
   static get HttpRequest () { return HttpRequest }
   static get HttpResponse () { return HttpResponse }
@@ -613,5 +606,3 @@ class HttpClient extends EventEmitter {
     }
   }
 }
-
-export { HttpClient }
