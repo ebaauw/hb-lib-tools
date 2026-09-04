@@ -5,7 +5,13 @@
 //
 // Logger for HomeKit accessory announcements.
 
-import type { integer, jsonMap, map } from 'hb-lib-tools'
+/** The `hap` command line tool.
+  * Issue `hap -h` for more info.
+  * @module
+  */
+
+import type { integer, jsonMap } from 'hb-lib-tools'
+import { commandLineToolMode } from 'hb-lib-tools/CommandLineTool'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
@@ -49,14 +55,20 @@ Parameters:
   ${b('-t')} ${u('timeout')}, ${b('--timeout=')}${u('timeout')}
   Search for ${u('timeout')} seconds instead of default ${b('5')}.`
 
+/** @ignore */
 class HapTool extends CommandLineTool {
   pkgJson: jsonMap
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
-  options: map
+  options: {
+    mode?: commandLineToolMode,
+    serviceType: string,
+    timeout: integer
+  }
+
 
   constructor (pkgJson: jsonMap) {
-    super()
+    super(pkgJson)
     this.pkgJson = pkgJson
     this.usage = usage
     this.options = {
@@ -66,14 +78,14 @@ class HapTool extends CommandLineTool {
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this.pkgJson)
+    const parser = new CommandLineParser(this, this.pkgJson)
     parser
       .help('h', 'help', help)
       .version('V', 'version')
-      .debug('D', 'debug', this)
+      .debug('D', 'debug')
       .flag('a', 'all', () => { this.options.serviceType = '*' })
-      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
-      .flag('s', 'service', () => { this.options.mode = 'service' })
+      .flag('d', 'daemon', () => { this.options.mode = commandLineToolMode.daemon })
+      .flag('s', 'service', () => { this.options.mode = commandLineToolMode.service })
       .option('T', 'serviceType', (value) => { this.options.serviceType = value })
       .option('t', 'timeout', (value) => {
         this.options.timeout = OptionParser.toInt(
@@ -82,7 +94,7 @@ class HapTool extends CommandLineTool {
       })
       .parse()
     this.jsonFormatter = new JsonFormatter(
-      this.options.mode === 'service'
+      this.options.mode === commandLineToolMode.service
         ? { noWhiteSpace: true, sortKeys: true }
         : { sortKeys: true }
     )
@@ -96,7 +108,7 @@ class HapTool extends CommandLineTool {
         serviceType: this.options.serviceType as string,
         timeout: this.options.timeout as integer
       })
-      if (this.options.mode) {
+      if (this.options.mode != null) {
         this.setOptions({ mode: this.options.mode })
         this.client.on('serviceUp', (address, obj) => {
           this.log('found %j at %s: %s', obj.name, address, this.jsonFormatter.stringify(obj))
