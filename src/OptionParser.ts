@@ -15,12 +15,8 @@ import { posix } from 'node:path'
 import { isIPv4, isIPv6 } from 'node:net'
 
 
-/** User input error.
-  * @hideconstructor
-  * @extends Error
-  * @memberof OptionParser
-  */
-class UserInputError extends Error {}
+/** User input error. */
+export class UserInputError extends Error {}
 
 // Create a new RangeError or UserInputError, depending on userInput.
 function newRangeError (message: string, userInput = false) {
@@ -37,7 +33,7 @@ function newTypeError (message: string, userInput = false) {
   return userInput ? new UserInputError(message) : new TypeError(message)
 }
 
-type CallBackFunction = {
+export type CallBackFunction = {
   (value: unknown): void
   list?: map
 }
@@ -59,17 +55,10 @@ const patterns = {
 /* eslint-enable max-len */
 
 /** Parser and validator for options and other parameters.
-  * <br>See {@link OptionParser}.
-  * @name OptionParser
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
-
-/** Parser and validator for options and other parameters.
   *
   * @extends EventEmitter
-  * @emits userInputError
-  * @emits warning
+  * emits userInputError
+  * emits warning
   */
 class OptionParser extends EventEmitter {
 
@@ -913,10 +902,8 @@ class OptionParser extends EventEmitter {
 
   /** Parse options.
     *
-    * @param {object} options - The input options.
-    * @param {?object} defaults - The default values, to be overwritten by
-    * the corresponding values in `options`.
-    * @returns {object} The
+    * @param options - The input options.
+    * @returns The parsed options.
     * @throws {TypeError} When option has wrong type.
     * @throws {RangeError} When option has wrong value.
     * @throws {SyntaxError} Unknown option.
