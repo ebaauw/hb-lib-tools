@@ -5,6 +5,11 @@
 //
 // JSON formatter.
 
+/** The `json` command line tool.
+  * Issue `json -h` for more info.
+  * @module
+  */
+
 import type { integer, json, jsonMap } from 'hb-lib-tools'
 
 import { readFile } from 'node:fs/promises'
@@ -80,6 +85,7 @@ Parameters:
   When the file name ends in ${b('.gz')}, it is assumed to be a gzip file and
   uncompressed automatically.`
 
+/** @ignore */
 class JsonTool extends CommandLineTool {
   private options: {
     sortKeys: boolean,
@@ -100,6 +106,7 @@ class JsonTool extends CommandLineTool {
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
+  /** @hidden */
   constructor (pkgJson?: jsonMap) {
     super()
     this.usage = usage
@@ -121,7 +128,7 @@ class JsonTool extends CommandLineTool {
   }
 
   parseArguments (): void {
-    const parser = new CommandLineParser(this.pkgJson)
+    const parser = new CommandLineParser(this, this.pkgJson)
     parser
       .help('h', 'help', help)
       .version('V', 'version')
