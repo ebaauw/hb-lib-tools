@@ -3,11 +3,92 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
-type integer = number
-type map = { [key: string]: unknown }
-type stringMap = { [key: string]: string }
-type json = null | boolean | number | string | json[] | jsonMap
-type jsonMap = { [key: string]: json }
+/** Library for Homebridge plugins.
+  *
+  * ## Introduction
+  * This library contains command-line tools and supporting utility classes, types, and functions for 
+  * [homebridge-lib](https://github.com/ebaauw/homebridge-lib).
+  *
+  * ### Command-Line Tools
+  * This library comes with a number of command-line tools for troubleshooting Homebridge installations.
+  *
+  * Tool                        | Description
+  * --------------------------- | -----------
+  * {@link HapTool! hap}         | Logger for HomeKit accessory announcements.
+  * {@link JsonTool! json}       | JSON formatter.
+  * {@link SysinfoTool! sysinfo} | Print hardware and operating system information.
+  * {@link UpnpTool! upnp}       | Logger for UPnP device announcements.
+  *
+  * Each command-line tool takes a `-h` or `--help` argument to provide a brief overview
+  * of its functionality and command-line arguments.
+  * 
+  * To install the command-line tools, issue:
+  * ```bash
+  * npm install -g hb-lib-tools
+  * ```
+  *
+  * ### Utility Classes
+  * This library provides a number of utility classes for Homebridge plugins and/or command-line tools.
+
+  * Class                       | Description
+  * --------------------------- | -----------
+  * {@link Colour!}             | Colour conversions.
+  * {@link CommandLineParser!}  | Parser and validator for command-line arguments.
+  * {@link CommandLineTool!}    | Abstract base class for a command-line tool.
+  * {@link HttpClient!}         | HTTP client.
+  * {@link JsonFormatter!}      | JSON formatter.
+  * {@link MdnsClient!}         | Multicast DNS (Bonjour) client.
+  * {@link OptionParser!}       | Parser and validator for options and other parameters.
+  * {@link SystemInfo!}         | System information.
+  * {@link UpnpClient!}         | Universal Plug and Play client.
+  *
+  * Each utility class is provided as a separate import, to enable lazy loading.
+  * E.g. to use the `HttpClient` class, issue:
+  * ```typescript
+  * import { HttpClient} from 'hb-lib-tools/HttpClient'
+  * ```
+  * or, to load it lazily:
+  * ```typescript
+  * const { HttpClient } = await import('hb-lib-tools/HttpClient')
+  * ```
+  * 
+  * ### Utility Types
+  * This library provides a number of utility types used by the utility classes and functions.
+  * Type              | Description
+  * ----------------- | -----------
+  * {@link integer}   | Integer number.
+  * {@link json}      | JSON value.
+  * {@link jsonMap}   | Map of string keys to JSON values.
+  * {@link Logger}    | Logger interface.
+  * {@link map}       | Map of string keys to unknown values.
+  * {@link stringMap} | Map of string keys to string values.
+  * 
+  * To use the types provided by this library, issue:
+  * ```typescript
+  * import type { json } from 'hb-lib-tools'
+  * ```
+  * 
+  * ### Utility Functions
+  * This library provides a number of utility functions used by the utility classes and command-line tools.
+  * Function                       | Description
+  * ------------------------------ | -----------
+  * {@link formatError}            | Convert Error to string.
+  * {@link recommendedNodeVersion} | Return the recommended version of NodeJS from package.json.
+  * {@link timeout}                | Resolve after given time, delaying execution.
+  * {@link toHexString}            | Convert {@link integer} or `Buffer` to hex string.
+  *
+  * To use the utility functions, issue:
+  * ```typescript
+  * import { formatError, recommendedNodeVersion, timeout, toHexString } from 'hb-lib-tools'
+  * ```
+  * @module 
+  */
+
+export type integer = number & {}
+export type map = { [key: string]: unknown }
+export type stringMap = { [key: string]: string }
+export type json = null | boolean | number | string | json[] | jsonMap
+export type jsonMap = { [key: string]: json }
 
 import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
@@ -15,66 +96,33 @@ import { getSystemErrorMessage } from 'node:util'
 import { chalk } from 'hb-lib-tools/chalk'
 import { OptionParser } from 'hb-lib-tools/OptionParser'
 
-/** Library for Homebridge plugins.
-  * See the {@tutorial hb-lib-tools} tutorial.
-  *
-  * This repository contains command-line tools and supporting utility classes for
-  * [homebridge-lib](https://github.com/ebaauw/homebridge-lib), a library for Homebridge plugins.
-  *
-  * This repository provides:
-  * - A base class to building command-line tools:
-  * {@link CommandLineTool}.
-  * - A series of helper classes for building homebridge plugins (of any type)
-  * and/or command-line utilities:
-  * {@link Colour},
-  * {@link CommandLineParser},
-  * {@link HttpClient},
-  * {@link JsonFormatter},
-  * {@link MdsnClient},
-  * {@link OptionParser},
-  * {@link SystemInfo}, and
-  * {@link UpnpClient}.
-  * - A series of command-line utilities for troubleshooting Homebridge setups:
-  * `hap`, `json`, `sysinfo`, `upnp`.
-  * For more information on these, start the tool from the command-line
-  * with `-h` or `--help`.
-  *
-  * To access the static methods provided by this library, simply import them by:
-  * ```javascript
-  * import { timeout } from 'hb-lib-tools'
-  * ```
-  * The helper classes are provided as separate imports, to enable lazy loading.
-  * ```javascript
-  * import { HttpClient} from 'hb-lib-tools/HttpClient'
-  * ```
-  * or
-  * ```
-  * const { HttpClient } = await import('hb-lib-tools/HttpClient')
-  * ```
-  *
-  * @module hb-lib-tools
+/** Logger interface.
   */
-
-interface Logger {
+export interface Logger {
+  /** Log message. */
   log: (format: string | Error, ...args: unknown[]) => void,
+  /** Log error message. */
   error: (format: string | Error, ...args: unknown[]) => void,
+  /** Log warning message. */
   warn: (format: string | Error, ...args: unknown[]) => void,
-  // info: (format: string | Error, ...args: unknown[]) => void,
+  /** Log debug message. */
   debug: (format: string | Error, ...args: unknown[]) => void,
+  /** Log verbose debug message. */
   vdebug: (format: string | Error, ...args: unknown[]) => void,
+  /** Log very verbose debug message. */
   vvdebug: (format: string | Error, ...args: unknown[]) => void
 }
 
 interface SystemError extends Error {
-  errno?: number;
-  path?: string;
-  dest?: string;
-  address?: string;
-  port?: number;
-  hostname?: string;
-  syscall?: string;
-  code?: string;
-  cmd?: string;
+  errno?: number
+  path?: string
+  dest?: string
+  address?: string
+  port?: number
+  hostname?: string
+  syscall?: string
+  code?: string
+  cmd?: string
 }
 
 // Check of e is a JavaScript runtime error.
@@ -95,29 +143,29 @@ function isNodejsError (e: SystemError) {
   return typeof e.code === 'string' && e.code.startsWith('ERR_')
 }
 
+
 /** Convert Error to string.
   *
   * Include the stack trace only for programming errors (JavaScript and NodeJS
   * runtime errors).
   * Translate system errors into more readable messages.
-  * @param {Error} e - The error.
-  * @param {boolean} [useChalk=false] - Use chalk to grey out the stack trace.
-  * @returns {string} - The error as string.
-  * @memberof module:hb-lib-tools
+  * @param error - The error.
+  * @param useChalk - Use chalk to grey out the stack trace.
+  * @returns The error as string.
   */
-function formatError (e: SystemError, useChalk = false) {
-  if (isJavaScriptError(e) || isNodejsError(e)) {
-    if (e.stack != null) {
+export function formatError (error: Error, useChalk = false) {
+  if (isJavaScriptError(error) || isNodejsError(error)) {
+    if (error.stack != null) {
       if (useChalk) {
-        const lines = e.stack.split('\n')
+        const lines = error.stack.split('\n')
         const firstLine = lines.shift()
         return firstLine + '\n' + chalk.reset.gray(lines.join('\n'))
       }
-      return e.stack
+      return error.stack
     }
   }
-  e = e as Error & SystemError
-  if (e.errno != null) { // SystemError
+  const e = error as SystemError
+  if (e.errno != null) {
     let label = ''
     if (e.path != null) {
       label = e.path
@@ -150,15 +198,16 @@ function formatError (e: SystemError, useChalk = false) {
 /** Return the recommended version of NodeJS from package.json.
   * This is the version used to develop and test the software,
   * typically the latest LTS version.
-  * @param {string} packageJson - The contents of package.json
-  * @returns {string} - The recommended version of NodeJS.
-  * @memberof module:hb-lib-tools
+  * @param packageJson - The contents of `package.json`.
+  * @returns The recommended version of NodeJS.
   */
-function recommendedNodeVersion (packageJson: { engines?: { node?: string } }) {
-  return packageJson?.engines?.node?.split('||')?.[0] ?? process.version.slice(1)
+export function recommendedNodeVersion (packageJson: jsonMap) {
+  const engines = packageJson.engines as jsonMap
+  const node = engines.node as string
+  return node.split('||')?.[0] ?? process.version.slice(1)
 }
 
-/** Resolve after given period, delaying execution.
+/** Resolve after given time, delaying execution.
   *
   * E.g. to delay execution for 1.5 seconds, issue:
   * ```javascript
@@ -167,12 +216,11 @@ function recommendedNodeVersion (packageJson: { engines?: { node?: string } }) {
   *   await timeout(1500)
   * ```
   *
-  * @param {integer} msec - Period (in msec) to wait.
-  * @throws {TypeError} On invalid parameter type.
-  * @throws {RangeError} On invalid parameter value.
-  * @memberof module:hb-lib-tools
+  * @param msec - Time (in msec) to wait.
+  * @throws `TypeError` On invalid parameter type.
+  * @throws `RangeError` On invalid parameter value.
   */
-const timeout: (msec: number) => Promise<void> = async (msec: number) => {
+export async function timeout (msec: integer): Promise<void> {
   msec = OptionParser.toInt('msec', msec, { min: 0 })
   return new Promise((resolve: () => void) => {
     setTimeout(() => {
@@ -182,21 +230,18 @@ const timeout: (msec: number) => Promise<void> = async (msec: number) => {
 }
 
 /** Convert integer or Buffer to hex string.
-  * @param {integer|Buffer} value - The integer or Buffer.
-  * @param {?integer} length - The (minimum) number of digits in the hex string.
+  * @param value - The integer or Buffer to convert to a hex string.
+  * @param options - Options.
+  * @param options.length - The (minimum) number of digits in the hex string.
   * The hex string is left padded with `0`s, to reach the length.
-  * @returns {string} - The hex string.
-  * @memberof module:hb-lib-tools
+  * @returns The hex string.
+  * @throws `TypeError` On invalid parameter type.
+  * @throws `RangeError` On invalid parameter value.
   */
-const toHexString: (value: integer | Buffer, options?: {
-  length?: integer
-}) => string = (value, options = {}) => {
+export function toHexString (value: integer | Buffer, options: { length?: integer } = {}): string {
   if (Buffer.isBuffer(value)) {
     return value.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
   }
-  const length = options.length != null ? OptionParser.toInt('length', options.length, { min: 0, max: 32 }) : 0
+  const length = options.length == null ? 0 : OptionParser.toInt('length', options.length, { min: 0, max: 32 })
   return OptionParser.toIntString('value', value, { radix: 16, length })
 }
-
-export type { integer, json, jsonMap, map, stringMap, Logger }
-export { formatError, recommendedNodeVersion, timeout, toHexString }
