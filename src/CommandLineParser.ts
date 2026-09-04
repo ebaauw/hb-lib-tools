@@ -3,6 +3,13 @@
 // Library for Homebridge plugins.
 // Copyright © 2017-2026 Erik Baauw. All rights reserved.
 
+/** Parser and validator for command-line arguments.
+  * To use `CommandLineParser`, issue:
+  * ```typescript
+  * import { CommandLineParser, UsageError } from 'hb-lib-tools/CommandLineParser'
+  * ```
+  * @module
+  */
 import type { jsonMap } from 'hb-lib-tools'
 
 import { createRequire } from 'node:module'
@@ -14,48 +21,38 @@ import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 const require = createRequire(import.meta.url)
 const packageJson: jsonMap = require('../package.json')
 
-/** Usage error.
-  * @hideconstructor
-  * @extends Error
-  * @memberof CommandLineParser
-  */
-class UsageError extends Error {}
+/** Usage error. */
+export class UsageError extends Error {}
 
-/** Parser and validator for command-line arguments.
-  * <br>See {@link CommandLineParser}.
-  * @name CommandLineParser
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
-
-/** Parser and validator for command-line arguments.
-  */
-class CommandLineParser {
-  static get UsageError () { return UsageError }
-
+/** Parser and validator for command-line arguments. */
+export class CommandLineParser {
+  private _tool: CommandLineTool
+  private _packageJson: jsonMap
   private _callbacks: {
     flags: { [key: string]: (key: string) => void }
     options: { [key: string]: (value: string, key: string) => void }
     parameters: { key: string, callback: (value: string, key: string) => void, optional: boolean }[]
     remaining: ((values: string[]) => void) | null
   }
-  private _packageJson: jsonMap
 
   /** Create a new parser instance.
+    * @param {CommandLineTool} tool = The parent command-line tool,
+    * which will be used to set the debug level.
     * @param {jsonMap} pkgJson - The contents of `package.json` to retrieve
     * the version and homepage for the command-line tool.
     */
-  constructor (pkgJson: jsonMap = packageJson) {
+  constructor (tool: CommandLineTool, pkgJson: jsonMap = packageJson) {
+    this._tool = tool
+    this._packageJson = pkgJson
     this._callbacks = {
       flags: {},
       options: {},
       parameters: [],
       remaining: null
     }
-    this._packageJson = pkgJson
   }
 
-  #toShort (key: unknown): string | null {
+  #toShortKey (key: unknown): string | null {
     if (key == null) {
       return null
     }
@@ -68,7 +65,7 @@ class CommandLineParser {
     return key
   }
 
-  #toLong (key: unknown): string | null {
+  #toLongKey (key: unknown): string | null {
     if (key == null) {
       return null
     }
@@ -85,20 +82,19 @@ class CommandLineParser {
     *
     * See {@link CommandLineParser#flag flag()}.
     *
-    * @param {string} shortKey - The short key (e.g. `h` for `-h`).
-    * @param {string} longKey - The long key (e.g. `help` for `--help`).
-    * @param {string} helpText - The help text.
-    * @return {CommandLineParser} this - For chaining.
+    * @param shortKey - The short key (e.g. `h` for `-h`).
+    * @param longKey - The long key (e.g. `help` for `--help`).
+    * @param helpText - The help text.
     */
-  help (shortKey: string | null, longKey: string | null, helpText: string): CommandLineParser {
+  help (shortKey: string | null, longKey: string | null, helpText: string): this {
     helpText = OptionParser.toString('helpText', helpText, { nonEmpty: true })
     this.flag(shortKey, longKey, () => {
-      const recommendedVersion = recommendedNodeVersion(packageJson)
+      const recommendedVersion = recommendedNodeVersion(this._packageJson)
       const warning = (process.version.slice(1) !== recommendedVersion)
         ? `, recommended version: node v${recommendedVersion}`
         : ''
-      console.log(helpText)
-      console.log(`
+      this._tool.print(helpText)
+      this._tool.print(`
 See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
 (${this._packageJson.name} v${this._packageJson.version}, node ${process.version}${warning})`
       )
@@ -113,11 +109,10 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     *
     * @param {string} shortKey - The short key (e.g. `V` for `-V`).
     * @param {string} longKey - The long key (e.g. `version` for `--version`).
-    * @return {CommandLineParser} this - For chaining.
     */
-  version (shortKey: string | null, longKey: string | null): CommandLineParser {
+  version (shortKey: string | null, longKey: string | null): this {
     this.flag(shortKey, longKey, () => {
-      console.log(this._packageJson.version)
+      this._tool.print(this._packageJson.version as string)
       process.exit(0)
     })
     return this
@@ -129,18 +124,16 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     *
     * @param {string} shortKey - The short key (e.g. `D` for `-D`).
     * @param {string} longKey - The long key (e.g. `debug` for `--debug`).
-    * @param {CommandLineTool} tool = The parent command-line tool,
-    * which will be used to set the debug level.
     * @return {CommandLineParser} this - For chaining.
     */
-  debug (shortKey: string | null, longKey: string | null, tool: CommandLineTool): CommandLineParser {
+  debug (shortKey: string | null, longKey: string | null): this {
     this.flag(shortKey, longKey, () => {
-      if (tool.vdebugEnabled) {
-        tool.setOptions({ vvdebug: true })
-      } else if (tool.debugEnabled) {
-        tool.setOptions({ vdebug: true })
+      if (this._tool.vdebugEnabled) {
+        this._tool.setOptions({ vvdebug: true })
+      } else if (this._tool.debugEnabled) {
+        this._tool.setOptions({ vdebug: true })
       } else {
-        tool.setOptions({ debug: true, chalk: true })
+        this._tool.setOptions({ debug: true, chalk: true })
       }
     })
     return this
@@ -152,20 +145,19 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * (a single character, like `-v`), or by a long key (a word, like
     * `--verbose`).
     *
-    * @param {string} shortKey - The short key (e.g. `v` for `-v`).
-    * @param {string} longKey - The long key (e.g. `verbose` for `--verbose`).
-    * @param {function} callback - The callback function.<br>
+    * @param shortKey - The short key (e.g. `v` for `-v`).
+    * @param longKey - The long key (e.g. `verbose` for `--verbose`).
+    * @param callback - The callback function.<br>
     * The function will be called when the flag is present, with the
     * following parameters:
     *
     * Name | Type | Attributes | Description
     * ---- | ---- | ---------- | -----------
     * `key` | string | | The key.
-    * @return {CommandLineParser} this - For chaining.
     */
-  flag (shortKey: string | null, longKey: string | null, callback: (key: string) => void): CommandLineParser {
-    shortKey = this.#toShort(shortKey)
-    longKey = this.#toLong(longKey)
+  flag (shortKey: string | null, longKey: string | null, callback: (key: string) => void): this {
+    shortKey = this.#toShortKey(shortKey)
+    longKey = this.#toLongKey(longKey)
     if (shortKey != null) {
       this._callbacks.flags[shortKey] = callback
     }
@@ -183,9 +175,9 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * The value can specified in the next or in the same command-line parameter:
     * `-t5` `--timeout=5`, `-t 5`, or `--timeout 5`
     *
-    * @param {string} shortKey - The short key (e.g. `t` for `-t`).
-    * @param {string} longKey - The long key (e.g. `timeout` for `--timeout`).
-    * @param {function} callback - The callback function.<br>
+    * @param shortKey - The short key (e.g. `t` for `-t`).
+    * @param longKey - The long key (e.g. `timeout` for `--timeout`).
+    * @param callback - The callback function.<br>
     * The function will be called when the option is present, with the
     * following parameters:
     *
@@ -193,11 +185,10 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * ---- | ---- | ---------- | -----------
     * `value` | string | | The value.
     * `key` | string | | The (short or long) key.
-    * @return {CommandLineParser} this - For chaining.
     */
-  option (shortKey: string | null, longKey: string | null, callback: (value: string, key: string) => void): CommandLineParser {
-    shortKey = this.#toShort(shortKey)
-    longKey = this.#toLong(longKey)
+  option (shortKey: string | null, longKey: string | null, callback: (value: string, key: string) => void): this {
+    shortKey = this.#toShortKey(shortKey)
+    longKey = this.#toLongKey(longKey)
     if (shortKey != null) {
       this._callbacks.options[shortKey] = callback
     }
@@ -212,8 +203,8 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * A positional paramater is a mandatory command-line parameter.
     * It is specified as a single value, e.g. `get`
     *
-    * @param {string} key - The parameter key (e.g. `command`).
-    * @param {function} callback - The callback function.<br>
+    * @param key - The parameter key (e.g. `command`).
+    * @param callback - The callback function.<br>
     * The function will be called with the following parameters:
     *
     * Name | Type | Attributes | Description
@@ -221,9 +212,8 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * `value` | string | | The parameter value.
     * `key` | string | | The parameter key.
     * @param {boolean} [optional=false] - Whether the parameter is optional.
-    * @return {CommandLineParser} this - For chaining.
     */
-  parameter (key: string, callback: (value: string, key: string) => void, optional: boolean = false): CommandLineParser {
+  parameter (key: string, callback: (value: string, key: string) => void, optional: boolean = false): this {
     key = OptionParser.toString('key', key, { nonEmpty: true })
     this._callbacks.parameters.push({ key, callback, optional })
     return this
@@ -235,15 +225,14 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     *
     * The remaining parameters are any additional commmand-line parameters,
     * after the positional paramers, typically indicated as `[file ...]`.
-    * @param {function} callback - The callback function.<br>
-    * This function will be called with the following paramters:
+    * @param callback - The callback function.<br>
+    * This function will be called with the following parameters:
     *
     * Name | Type | Attributes | Description
     * ---- | ---- | ---------- | -----------
     * `values` | string[] | | A list of values of the remaining parameters.
-    * @return {CommandLineParser} this - For chaining.
     */
-  remaining (callback: (values: string[]) => void): CommandLineParser {
+  remaining (callback: (values: string[]) => void): this {
     callback = OptionParser.toFunction('callback', callback)
     this._callbacks.remaining = callback
     return this
@@ -251,7 +240,7 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
 
   /** Parse the command-line parameters.
     *
-    * @throws {UsageError} In case of invalid command-line paramters.
+    * @throws {@link UsageError} In case of invalid command-line parameters.
     */
   parse (wordList: string[] = process.argv.slice(2)) {
     // process.argv[0]: node executable, process.argv[1]: javascript file
@@ -330,5 +319,3 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     }
   }
 }
-
-export { CommandLineParser }
