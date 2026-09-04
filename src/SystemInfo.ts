@@ -118,18 +118,11 @@ const macOsInfo = {
 }
 
 /** System information.
-  * <br>See {@link SystemInfo}.
-  * @name SystemInfo
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
-
-/** System information.
   */
 class SystemInfo {
   /** Parse a text into key/value pairs.
-    * @param {string} text - The text.
-    * @return {Object} - The parsed text.
+    * @param text - The text.
+    * @return The parsed text.
     */
   static parseText (text: string, delimiter = '='): stringMap {
     const response: stringMap = {}
@@ -144,8 +137,8 @@ class SystemInfo {
   }
 
   /** Parse Raspberry Pi hardware revision.
-    * @param {int} revision - The Raspberry Pi hardware revision.
-    * @return {Object} response - The parsed revision information.
+    * @param revision - The Raspberry Pi hardware revision.
+    * @return The parsed revision information.
     */
   static parseRpiRevision (revision: integer): jsonMap {
     revision &= 0x00FFFFFF
@@ -219,8 +212,8 @@ class SystemInfo {
 
   /** Extract Raspberry Pi serial number and hardware revision info from the
     * contents of `/proc/cpuinfo` and parse the revision.
-    * @param {string} cpuInfo - The contents of `/proc/cpuinfo`.
-    * @return {object} - The extracted info.
+    * @param cpuInfo - The contents of `/proc/cpuinfo`.
+    * @return The extracted info.
     */
   static parseRpiCpuInfo (cpuInfo: string): jsonMap {
     let a = /Serial\s*: ([0-9a-f]{16})/.exec(cpuInfo)
@@ -246,8 +239,8 @@ class SystemInfo {
   platform: string | null = null
 
   /** Creates a new instance of SystemInfo.
-    * @param {object} params - Parameters.
-    * @param {Logger} [params.logger] - An instance of a logger class.
+    * @param params - Parameters.
+    * @param params.logger - An instance of a logger class.
     * Typically this would be subclass of `Delegate` from `homebridge-lib`
     * or of `CommandLineTool`.
     */
@@ -310,7 +303,7 @@ class SystemInfo {
   }
 
   /** Extract serial number and hardware revision info from `/proc/cpuinfo`.
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getRpiInfo (): Promise<jsonMap> {
     const cpuInfo = await this.readTextFile('/proc/cpuinfo')
@@ -318,7 +311,7 @@ class SystemInfo {
   }
 
   /** Extract OS info from /etc/os-release.
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getPiOsInfo (): Promise<jsonMap> {
     const bit = (await this.exec('getconf', 'LONG_BIT')).trim()
@@ -334,7 +327,7 @@ class SystemInfo {
   }
 
   /** Extract Apple Mac hardware info from `system_profiler` command.
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getMacInfo (): Promise<jsonMap> {
     let prettyName
@@ -380,7 +373,7 @@ class SystemInfo {
   }
 
   /** Extract macOS info from `sw_vers` command.
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getMacOsInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.exec('sw_vers'), ':')
@@ -404,7 +397,7 @@ class SystemInfo {
   }
 
   /** Extract Synology info from `/etc/synoinfo.conf`
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getSynoInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/synoinfo.conf'))
@@ -420,7 +413,7 @@ class SystemInfo {
   }
 
   /** Extract DSM info from `/etc/VERSION`.
-    * @return {object} - The extracted info.
+    * @return The extracted info.
     */
   async getDsmInfo (): Promise<jsonMap> {
     const text = SystemInfo.parseText(await this.readTextFile('/etc/VERSION'))
@@ -446,9 +439,9 @@ class SystemInfo {
   }
 
   /** Execute a command on the local machine.
-    * @param {string} command - The command.
-    * @param {...string} ...args - The command parameters.
-    * @return {string} - The output of the command.
+    * @param command - The command.
+    * @param args - The command parameters.
+    * @return The output of the command.
     */
   async exec (command: string, ...args: string[]): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -466,8 +459,8 @@ class SystemInfo {
   }
 
   /** Execute a shell command on the local machine.
-    * @param {string} command - The command.
-    * @return {string} - The output of the command.
+    * @param command - The command.
+    * @return The output of the command.
     */
   async execShell (command: string): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -484,8 +477,8 @@ class SystemInfo {
   }
 
   /** Check if file exists.
-    * @param {string} fileName - The file name.
-    * @return {bool} - True iff file exists,
+    * @param fileName - The file name.
+    * @return True iff file exists,
     */
   async existsFile (fileName: string): Promise<boolean> {
     try {
@@ -496,8 +489,8 @@ class SystemInfo {
   }
 
   /** Read a text file.
-    * @param {string} fileName - The file name.
-    * @return {string} - The contents of the file.
+    * @param fileName - The file name.
+    * @return The contents of the file.
     */
   async readTextFile (fileName: string): Promise<string> {
     this.debug('read file: %s', fileName)
