@@ -1,5 +1,5 @@
 dist
 node_modules
-out
+doc
 npm-debug.log
 .DS_Store
