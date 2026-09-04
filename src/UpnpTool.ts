@@ -3,7 +3,13 @@
 // Logger for UPnP device announcements.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+/** The `upnp` command line tool.
+  * Issue `upnp -h` for more info.
+  * @module
+  */
+
 import type { jsonMap, map, stringMap } from 'hb-lib-tools'
+import { commandLineToolMode } from 'hb-lib-tools/CommandLineTool'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
@@ -55,32 +61,41 @@ Parameters:
   ${b('-z')}, ${b('--sonos')}
   Search for Sonos Zone Players.`
 
+/** @ignore */
 class UpnpTool extends CommandLineTool {
   pkgJson: jsonMap
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
-  options: map
+  options: {
+    deviceType: string,
+    filter?: (message: stringMap) => boolean,
+    mode?: commandLineToolMode,
+    timeout: number
+  }
   upnp: map
 
   constructor (pkgJson: jsonMap) {
     super()
     this.pkgJson = pkgJson
     this.usage = usage
-    this.options = {}
+    this.options = {
+      deviceType: 'upnp:rootdevice',
+      timeout: 5
+    }
     this.upnp = {
       logger: this
     }
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this.pkgJson)
+    const parser = new CommandLineParser(this, this.pkgJson)
     parser
       .help('h', 'help', help)
       .version('V', 'version')
-      .debug('D', 'debug', this)
+      .debug('D', 'debug')
       .flag('a', 'all', () => { this.upnp.deviceType = 'ssdp:all' })
-      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
-      .flag('s', 'service', () => { this.options.mode = 'service' })
+      .flag('d', 'daemon', () => { this.options.mode = commandLineToolMode.daemon })
+      .flag('s', 'service', () => { this.options.mode = commandLineToolMode.service })
       .option('T', 'deviceType', (value) => { this.upnp.deviceType = value })
       .option('t', 'timeout', (value) => {
         this.upnp.timeout = OptionParser.toInt(
@@ -102,16 +117,16 @@ class UpnpTool extends CommandLineTool {
     try {
       this.parseArguments()
       this.jsonFormatter = new JsonFormatter(
-        this.options.mode === 'service'
+        this.options.mode === commandLineToolMode.service
           ? { noWhiteSpace: true, sortKeys: true }
           : { sortKeys: true }
       )
       this.upnpClient = new UpnpClient(this.upnp)
-      if (this.options.mode) {
+      if (this.options.mode != null) {
         this.setOptions({ mode: this.options.mode })
         this.upnpClient
           .on('deviceAlive', (address, message) => {
-            this.log('%s alive at %s: %j', message.nt, message.location, message)
+            this.log('%s alive at %s:  %j', message.nt, message.location, message)
           })
         this.upnpClient.listen()
         return
