@@ -27,38 +27,46 @@ function convert (rawMessage: string): stringMap {
   return message
 }
 
-/** Universal Plug and Play client.
-  * <br>See {@link UpnpClient}.
-  * @name UpnpClient
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
+/** {@link UpnpClient} events. */
+export interface Events {
+  /** Emitted by {@link UpnpClient.listen listen()} each alive message received, that passes the filers.
+    * @event
+    * @param address - The IP address of the device.
+    * @param message - The parsed UPnP alive message.
+    */
+  deviceAlive: [ address: string, message: stringMap]
+  /** Emitted by {@link UpnpClient.search search()} for each device found, that passes the filters.
+    * @event
+    * @param address - The IP address of the device.
+    * @param message - The parsed UPnP found message.
+    */
+  deviceFound: [ address: string, message: stringMap]
+}
 
-/** Universal Plug and Play client.
-  * @extends EventEmitter
-  */
-class UpnpClient extends EventEmitter {
-  warn: (format: string | Error, ...args: unknown[]) => void
-  debug: (format: string | Error, ...args: unknown[]) => void
-  vdebug: (format: string | Error, ...args: unknown[]) => void
-  vvdebug: (format: string | Error, ...args: unknown[]) => void
-  private _options
+/** Universal Plug and Play client. */
+class UpnpClient extends EventEmitter<Events> {
+  private warn: (format: string | Error, ...args: unknown[]) => void
+  private debug: (format: string | Error, ...args: unknown[]) => void
+  private vdebug: (format: string | Error, ...args: unknown[]) => void
+  private vvdebug: (format: string | Error, ...args: unknown[]) => void
+  private options
   private socket?: ReturnType<typeof createSocket>
   private host?: string
 
-  /** Create a new instance of a Universal Plug and Play client.
-    * @param {object} params - Paramters.
-    * @param {string} [params.deviceType='upnp:rootdevice'] - Filter on UPnP device type.
-    * @param {function} [params.filter=() => { return true }] - Function to
-    * filter UPnP messages.
-    * @param {instance} [params.logger] - Logger instance to log to.
-    * @param {integer} [params.timemout=5] - Timeout (in seconds) for
-    * {@link UpnpClient@search search()} to listen for responses.
-    */
+  /** Create a new instance of a Universal Plug and Play client. */
   constructor (params : {
+    /** Filter on UPnP device type.
+      * Default is `upnp:rootdevice` to listen for all root devices.
+      */
     deviceType?: string,
+    /** Function to filter UPnP messages.
+      * Default is to accept all messages.
+     */
     filter?: (message: stringMap) => boolean,
     logger?: Logger,
+    /** Timeout (in seconds) for {@link UpnpClient.search search()}
+      * to listen for responses.
+      * */
     timeout?: integer
   } = {}) {
     super()
@@ -66,7 +74,7 @@ class UpnpClient extends EventEmitter {
     this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
     this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
     this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
-    this._options = {
+    this.options = {
       deviceType: params.deviceType ?? 'upnp:rootdevice',
       filter: params.filter ?? (() => { return true }) as (message: stringMap) => boolean,
       hostname: '239.255.255.250',
@@ -77,15 +85,15 @@ class UpnpClient extends EventEmitter {
 
   /** Listen for UPnP alive broadcast messages.
     *
-    * A {@link UpnpClient#event:deviceAlive deviceAlive} event will be emitted
-    * on each alive messagae received, that passes the filers.
+    * A {@link Events.deviceAlive deviceAlive} event will be emitted
+    * on each alive message received, that passes the filters.
     */
   listen (): void {
     if (this.socket != null) {
       this.socket.close()
     }
     this.socket = createSocket({ type: 'udp4', reuseAddr: true })
-    this.socket.bind(this._options.port)
+    this.socket.bind(this.options.port)
     this.socket
       .on('error', (error: Error) => {
         this.warn(error)
@@ -95,7 +103,7 @@ class UpnpClient extends EventEmitter {
           ':' + this.socket!.address().port
         this.debug(
           'upnp: listening on %s for %s',
-          this.host, this._options.deviceType
+          this.host, this.options.deviceType
         )
       })
       .on('close', async () => {
@@ -115,35 +123,29 @@ class UpnpClient extends EventEmitter {
           return
         }
         if (
-          this._options.deviceType !== 'ssdp:all' &&
-          message.nt !== this._options.deviceType
+          this.options.deviceType !== 'ssdp:all' &&
+          message.nt !== this.options.deviceType
         ) {
           return
         }
-        if (this._options.filter(message)) {
+        if (this.options.filter(message)) {
           this.vvdebug('upnp: %s alive at %s: %j', message.nt, message.location, message)
           this.vdebug('upnp: %s alive at %s', message.nt, message.location)
-          /** Emitted for each alive message received, that passes the filers.
-            * @event UpnpClient#deviceAlive
-            * @param {string} address - IP address of the device.
-            * @param {object} message - The parsed message.
-            */
           this.emit('deviceAlive', rinfo.address, message)
         }
       })
   }
 
-  /** Stop listening for UPnP alive broadcast messages.
-    */
+  /** Stop listening for UPnP alive broadcast messages. */
   stopListen (): void {
     this.socket?.close()
   }
 
   /** Issue a UPnP search message and listen for responses.
     *
-    * A {@link UpnpClient#deviceFound deviceFound} event will be emitted on each
+    * A {@link Events.deviceFound deviceFound} event will be emitted on each
     * response received, that passes the filters.
-    * @returns {Promise} Promise that resolves to an object with the found devices.
+    * @returns Promise that resolves to a map of the found devices.
     */
   async search (): Promise<{ [key: string]: stringMap }> {
     const result = {} as { [key: string]: stringMap }
@@ -151,10 +153,10 @@ class UpnpClient extends EventEmitter {
     let host
     const request = Buffer.from([
       'M-SEARCH * HTTP/1.1',
-      `HOST: ${this._options.hostname}:${this._options.port}`,
+      `HOST: ${this.options.hostname}:${this.options.port}`,
       'MAN: "ssdp:discover"',
-      `MX: ${this._options.timeout}`,
-      `ST: ${this._options.deviceType}`,
+      `MX: ${this.options.timeout}`,
+      `ST: ${this.options.deviceType}`,
       ''
     ].join('\r\n'))
 
@@ -164,7 +166,7 @@ class UpnpClient extends EventEmitter {
         host = socket.address().address + ':' + socket.address().port
         this.debug(
           'upnp: listening on %s for %s',
-          host, this._options.deviceType
+          host, this.options.deviceType
         )
       })
       .on('message', (buffer, rinfo) => {
@@ -175,32 +177,27 @@ class UpnpClient extends EventEmitter {
           return
         }
         if (
-          this._options.deviceType !== 'ssdp:all' &&
-          message.st !== this._options.deviceType
+          this.options.deviceType !== 'ssdp:all' &&
+          message.st !== this.options.deviceType
         ) {
           return
         }
-        if (!this._options.filter(message)) {
+        if (!this.options.filter(message)) {
           return
         }
         this.vvdebug('upnp: found %s at %s: %j', message.st, message.location, message)
         this.vdebug('upnp: found %s at %s', message.st, message.location)
-        /** Emitted for each response received, that passes the filters.
-          * @event UpnpClient#deviceFound
-          * @param {string} address - IP address of the device.
-          * @param {object} message - The parsed message.
-          */
         this.emit('deviceFound', rinfo.address, message)
         result[message.location] = message
       })
     this.debug(
       'upnp: searching %ds for %s',
-      this._options.timeout, this._options.deviceType
+      this.options.timeout, this.options.deviceType
     )
     socket.send(
-      request, 0, request.length, this._options.port, this._options.hostname
+      request, 0, request.length, this.options.port, this.options.hostname
     )
-    await timeout(this._options.timeout * 1000)
+    await timeout(this.options.timeout * 1000)
     this.debug('upnp: search done')
     socket.close()
     await once(socket, 'close')
