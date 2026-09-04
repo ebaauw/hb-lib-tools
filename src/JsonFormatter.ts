@@ -11,13 +11,6 @@ const isSimple = (value: json): boolean => {
 }
 
 /** JSON formatter.
-  * <br>See {@link JsonFormatter}.
-  * @name JsonFormatter
-  * @type {Class}
-  * @memberof module:hb-lib-tools
-  */
-
-/** JSON formatter.
   *
   * Class to format (pretty-print) JavaScript types to formatted JSON strings.
   * This class is the engine under the `json` command-line tool.
