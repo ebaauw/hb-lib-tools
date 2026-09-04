@@ -3,6 +3,11 @@
 // Show system info.
 // Copyright © 2021-2026 Erik Baauw. All rights reserved.
 
+/** The `sysinfo` command line tool.
+  * Issue `sysinfo -h` for more info.
+  * @module
+  */
+
 import type { jsonMap, map } from 'hb-lib-tools'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
@@ -32,6 +37,7 @@ Parameters:
   ${b('-j')}, ${b('--json')}
   Print full info in json.`
 
+/** @ignore */
 class SysinfoTool extends CommandLineTool {
   pkgJson: jsonMap
   systemInfo: SystemInfo | null = null
@@ -48,11 +54,11 @@ class SysinfoTool extends CommandLineTool {
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this.pkgJson)
+    const parser = new CommandLineParser(this, this.pkgJson)
     parser
       .help('h', 'help', help)
       .version('V', 'version')
-      .debug('D', 'debug', this)
+      .debug('D', 'debug')
       .flag('j', 'json', () => { this.json = true })
       .parse()
   }
