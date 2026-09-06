@@ -3,17 +3,17 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer, stringMap } from 'hb-lib-tools'
+import type { integer, map } from 'hb-lib-tools'
 
 import { createSocket } from 'node:dgram'
 import { EventEmitter, once } from 'node:events'
 
 import { Logger, timeout } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { toInt } from 'hb-lib-tools/OptionParser'
 
 // Convert raw UPnP message to message object.
-function convert (rawMessage: string): stringMap {
-  const message = {} as stringMap
+function convert (rawMessage: string): map<string> {
+  const message = {} as map<string>
   const lines = rawMessage.toString().trim().split('\r\n')
   if (lines && lines[0]) {
     message.status = lines[0]
@@ -34,13 +34,13 @@ export interface Events {
     * @param address - The IP address of the device.
     * @param message - The parsed UPnP alive message.
     */
-  deviceAlive: [ address: string, message: stringMap]
+  deviceAlive: [ address: string, message: map<string>]
   /** Emitted by {@link UpnpClient.search search()} for each device found, that passes the filters.
     * @event
     * @param address - The IP address of the device.
     * @param message - The parsed UPnP found message.
     */
-  deviceFound: [ address: string, message: stringMap]
+  deviceFound: [ address: string, message: map<string>]
 }
 
 /** Universal Plug and Play client. */
@@ -62,7 +62,7 @@ class UpnpClient extends EventEmitter<Events> {
     /** Function to filter UPnP messages.
       * Default is to accept all messages.
      */
-    filter?: (message: stringMap) => boolean,
+    filter?: (message: map<string>) => boolean,
     logger?: Logger,
     /** Timeout (in seconds) for {@link UpnpClient.search search()}
       * to listen for responses.
@@ -76,10 +76,10 @@ class UpnpClient extends EventEmitter<Events> {
     this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
     this.options = {
       deviceType: params.deviceType ?? 'upnp:rootdevice',
-      filter: params.filter ?? (() => { return true }) as (message: stringMap) => boolean,
+      filter: params.filter ?? (() => { return true }) as (message: map<string>) => boolean,
       hostname: '239.255.255.250',
       port: 1900,
-      timeout: params.timeout == null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 })
+      timeout: params.timeout == null ? 5 : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 })
     }
   }
 
@@ -147,8 +147,8 @@ class UpnpClient extends EventEmitter<Events> {
     * response received, that passes the filters.
     * @return Promise that resolves to a map of the found devices.
     */
-  async search (): Promise<{ [key: string]: stringMap }> {
-    const result = {} as { [key: string]: stringMap }
+  async search (): Promise<{ [key: string]: map<string> }> {
+    const result = {} as { [key: string]: map<string> }
     const socket = createSocket({ type: 'udp4' })
     let host
     const request = Buffer.from([
