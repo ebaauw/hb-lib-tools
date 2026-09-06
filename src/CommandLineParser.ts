@@ -15,7 +15,7 @@ import type { jsonMap } from 'hb-lib-tools'
 import { createRequire } from 'node:module'
 
 import { recommendedNodeVersion } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { OptionParser, toString } from 'hb-lib-tools/OptionParser'
 import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
 
 const require = createRequire(import.meta.url)
@@ -52,11 +52,11 @@ export class CommandLineParser {
     }
   }
 
-  #toShortKey (key: unknown): string | null {
+  #toShortKey (key: string | null): string | null {
     if (key == null) {
       return null
     }
-    if (typeof key !== 'string' || key.length !== 1) {
+    if (key.length !== 1) {
       throw new TypeError(`${key}: invalid short key`)
     }
     if (this._callbacks.flags[key] != null || this._callbacks.options[key] != null) {
@@ -65,11 +65,11 @@ export class CommandLineParser {
     return key
   }
 
-  #toLongKey (key: unknown): string | null {
+  #toLongKey (key: string | null): string | null {
     if (key == null) {
       return null
     }
-    if (typeof key !== 'string' || key.length <= 1) {
+    if (key.length <= 1) {
       throw new TypeError(`${key}: invalid long key`)
     }
     if (this._callbacks.flags[key] != null || this._callbacks.options[key] != null) {
@@ -87,7 +87,7 @@ export class CommandLineParser {
     * @param helpText - The help text.
     */
   help (shortKey: string | null, longKey: string | null, helpText: string): this {
-    helpText = OptionParser.toString('helpText', helpText, { nonEmpty: true })
+    helpText = toString(helpText, { key: 'helpText', nonEmpty: true })
     this.flag(shortKey, longKey, () => {
       const recommendedVersion = recommendedNodeVersion(this._packageJson)
       const warning = (process.version.slice(1) !== recommendedVersion)
@@ -214,7 +214,7 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * @param {boolean} [optional=false] - Whether the parameter is optional.
     */
   parameter (key: string, callback: (value: string, key: string) => void, optional: boolean = false): this {
-    key = OptionParser.toString('key', key, { nonEmpty: true })
+    key = toString(key, { key: 'key', nonEmpty: true })
     this._callbacks.parameters.push({ key, callback, optional })
     return this
   }
@@ -233,7 +233,6 @@ See ${(this._packageJson.homepage as string).split('#')[0]} for more info.
     * `values` | string[] | | A list of values of the remaining parameters.
     */
   remaining (callback: (values: string[]) => void): this {
-    callback = OptionParser.toFunction('callback', callback)
     this._callbacks.remaining = callback
     return this
   }
