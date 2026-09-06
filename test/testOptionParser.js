@@ -8,9 +8,7 @@
 import assert from 'node:assert'
 import util from 'node:util'
 
-import { OptionParser } from 'hb-lib-tools/OptionParser'
-
-const { UserInputError } = OptionParser
+import { toBool, OptionParser, UserInputError } from 'hb-lib-tools/OptionParser'
 
 // ===== TEST SETUP ============================================================
 
@@ -119,7 +117,7 @@ const c = new C()
 
 describe('OptionParser', () => {
   describe('.toBool()', () => {
-    test(OptionParser.toBool, [
+    test(toBool, [
       // Standard values.
       { e: new TypeError('key: missing boolean value') },
       { p: { userInput: true }, e: new UserInputError('key: missing boolean value') },
