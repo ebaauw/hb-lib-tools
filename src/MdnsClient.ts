@@ -10,7 +10,7 @@ import { EventEmitter } from 'node:events'
 import Bonjour from 'bonjour-service'
 
 import { Logger, timeout } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { toInt } from 'hb-lib-tools/OptionParser'
 
 /** {@link MdnsClient} events. */
 export interface Events {
@@ -58,7 +58,7 @@ class MdnsClient extends EventEmitter<Events> {
       filter: params.filter ?? (() => { return true }) as (message: jsonMap) => boolean,
       host: '224.0.0.251:5353',
       serviceType: params.serviceType ?? 'hap',
-      timeout: params.timeout === null ? 5 : OptionParser.toInt('params.timeout', params.timeout, { min: 1, max: 60 })
+      timeout: params.timeout == null ? 5 : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 })
     }
   }
 
