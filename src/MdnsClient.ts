@@ -105,7 +105,7 @@ class MdnsClient extends EventEmitter<Events> {
     *
     * A {@link Events.serviceUp serviceUp} event will be emitted on each
     * service up announcement received, that passes the filters.
-    * @returns Promise that resolves to a map of the found services.
+    * @return Promise that resolves to a map of the found services.
     */
   async search (): Promise<{ [key: string]: jsonMap }> {
     const result: { [key: string]: jsonMap } = {}
