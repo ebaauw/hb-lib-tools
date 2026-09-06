@@ -11,15 +11,13 @@
   */
 
 import type { integer, jsonMap } from 'hb-lib-tools'
-import { commandLineToolMode } from 'hb-lib-tools/CommandLineTool'
+import { Mode } from 'hb-lib-tools/CommandLineTool'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
-
-const { b, u } = CommandLineTool
+import { toInt } from 'hb-lib-tools/OptionParser'
 
 const usage = `${b('hap')} [${b('-hVDads')}] [${b('-T')} ${u('serviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `HAP tool.
@@ -61,7 +59,7 @@ class HapTool extends CommandLineTool {
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
   options: {
-    mode?: commandLineToolMode,
+    mode?: Mode,
     serviceType: string,
     timeout: integer
   }
@@ -84,17 +82,15 @@ class HapTool extends CommandLineTool {
       .version('V', 'version')
       .debug('D', 'debug')
       .flag('a', 'all', () => { this.options.serviceType = '*' })
-      .flag('d', 'daemon', () => { this.options.mode = commandLineToolMode.daemon })
-      .flag('s', 'service', () => { this.options.mode = commandLineToolMode.service })
+      .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
+      .flag('s', 'service', () => { this.options.mode = Mode.service })
       .option('T', 'serviceType', (value) => { this.options.serviceType = value })
       .option('t', 'timeout', (value) => {
-        this.options.timeout = OptionParser.toInt(
-          'timeout', value, { min: 1, max: 60, userInput: true }
-        )
+        this.options.timeout = toInt(value, { key: 'timeout', min: 1, max: 60, userInput: true })
       })
       .parse()
     this.jsonFormatter = new JsonFormatter(
-      this.options.mode === commandLineToolMode.service
+      this.options.mode === Mode.service
         ? { noWhiteSpace: true, sortKeys: true }
         : { sortKeys: true }
     )
