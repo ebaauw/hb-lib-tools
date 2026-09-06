@@ -17,13 +17,11 @@ import { promisify } from 'node:util'
 import { unzip } from 'node:zlib'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { toInt, toPath } from 'hb-lib-tools/OptionParser'
 
 const gunzip = promisify(unzip)
-
-const { b, u } = CommandLineTool
 
 const usage = `${b('json')} [${b('-hVsnjuatlkv')}] [${b('-p')} path] [${b('-d')} depth] [${b('-c')} ${u('string')}]... [${u('file')}]...`
 const help = `JSON formatter.
@@ -139,14 +137,11 @@ class JsonTool extends CommandLineTool {
       .flag('a', 'ascii', () => { this.options.ascii = true })
       .flag('t', 'topOnly', () => { this.options.topOnly = true })
       .option('d', 'maxDepth', (value) => {
-        this.options.maxDepth = OptionParser.toInt(
-          'maxDepth', value, { min: 0, userInput: true }
+        this.options.maxDepth = toInt(value, { key: 'maxDepth', min: 0, userInput: true }
         )
       })
       .option('p', 'fromPath', (value) => {
-        this.options.fromPath = OptionParser.toPath(
-          'fromPath', value, { userInput: true }
-        )
+        this.options.fromPath = toPath(value, { key: 'fromPath', userInput: true })
       })
       .flag('l', 'leavesOnly', () => { this.options.leavesOnly = true })
       .flag('k', 'keysOnly', () => { this.options.keysOnly = true })
