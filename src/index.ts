@@ -61,7 +61,6 @@
   * {@link jsonMap}   | Map of string keys to JSON values.
   * {@link Logger}    | Logger interface.
   * {@link map}       | Map of string keys to unknown values.
-  * {@link stringMap} | Map of string keys to string values.
   * 
   * To use the types provided by this library, issue:
   * ```typescript
@@ -93,7 +92,7 @@ import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
-import { toInt, toIntString} from 'hb-lib-tools/OptionParser'
+import { toInt, toIntString } from 'hb-lib-tools/OptionParser'
 
 /** Logger interface.
   * 
