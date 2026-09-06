@@ -43,13 +43,13 @@ export type commandLineToolOptions = {
 class CommandLineTool implements Logger {
   /** Make text bold.
     * @param text - The text.
-    * @returns The bold text.
+    * @return The bold text.
     */
   static b (text: string) { return chalk.bold(text) }
 
   /** Make text underlined.
     * @param text - The text.
-    * @returns The underlined text.
+    * @return The underlined text.
     */
   static u (text: string) { return chalk.underline(text) }
   
@@ -90,7 +90,7 @@ class CommandLineTool implements Logger {
 
   /** Set logging options.
     * @param options - the new logging options.
-    * @returns The old options.
+    * @return The old options.
     */
   setOptions (options: commandLineToolOptions = {}): commandLineToolOptions {
     if (this.optionParser == null) {
