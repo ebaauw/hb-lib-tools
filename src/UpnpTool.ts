@@ -8,16 +8,14 @@
   * @module
   */
 
-import type { jsonMap, map, stringMap } from 'hb-lib-tools'
-import { commandLineToolMode } from 'hb-lib-tools/CommandLineTool'
+import type { jsonMap, map } from 'hb-lib-tools'
+import { Mode } from 'hb-lib-tools/CommandLineTool'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { toInt } from 'hb-lib-tools/OptionParser'
 import { UpnpClient } from 'hb-lib-tools/UpnpClient'
-
-const { b, u } = CommandLineTool
 
 const usage = `${b('upnp')} [${b('-hVDadnpsz')}] [${b('-T')} ${u('deviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `UPnP tool.
@@ -68,11 +66,11 @@ class UpnpTool extends CommandLineTool {
   jsonFormatter!: JsonFormatter
   options: {
     deviceType: string,
-    filter?: (message: stringMap) => boolean,
-    mode?: commandLineToolMode,
+    filter?: (message: map<string>) => boolean,
+    mode?: Mode,
     timeout: number
   }
-  upnp: map
+  upnp: map<unknown>
 
   constructor (pkgJson: jsonMap) {
     super()
@@ -94,16 +92,16 @@ class UpnpTool extends CommandLineTool {
       .version('V', 'version')
       .debug('D', 'debug')
       .flag('a', 'all', () => { this.upnp.deviceType = 'ssdp:all' })
-      .flag('d', 'daemon', () => { this.options.mode = commandLineToolMode.daemon })
-      .flag('s', 'service', () => { this.options.mode = commandLineToolMode.service })
+      .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
+      .flag('s', 'service', () => { this.options.mode = Mode.service })
       .option('T', 'deviceType', (value) => { this.upnp.deviceType = value })
       .option('t', 'timeout', (value) => {
-        this.upnp.timeout = OptionParser.toInt(
-          'timeout', value, { min: 1, max: 60, userInput: true }
+        this.upnp.timeout = toInt(
+          value, { key: 'timeout', min: 1, max: 60, userInput: true }
         )
       })
       .flag('p', 'hue', () => {
-        this.upnp.filter = (message: stringMap) => {
+        this.upnp.filter = (message: map<string>) => {
           return /^[0-9A-F]{16}$/.test(message['hue-bridgeid'])
         }
       })
@@ -117,7 +115,7 @@ class UpnpTool extends CommandLineTool {
     try {
       this.parseArguments()
       this.jsonFormatter = new JsonFormatter(
-        this.options.mode === commandLineToolMode.service
+        this.options.mode === Mode.service
           ? { noWhiteSpace: true, sortKeys: true }
           : { sortKeys: true }
       )
