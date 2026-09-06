@@ -4,10 +4,13 @@
 // Copyright © 2016-2026 Erik Baauw. All rights reserved.
 
 /** Colour utilities.
-  * Zigbee uses the [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) `xy` colour space.
-  * HomeKit uses the [sRGB](https://en.wikipedia.org/wiki/SRGB) colour space,
-  * expressed in [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV).
-  * This module provides functions to convert between these colour spaces.
+  * 
+  * This module provides functions to convert between the different colour spaces used by different systems:
+  * - Zigbee uses the [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) `xy` colour space;
+  * - Most computer systems use the [sRGB](https://en.wikipedia.org/wiki/SRGB) colour space.
+  * - HomeKit uses the [sRGB](https://en.wikipedia.org/wiki/SRGB) colour space as well,
+  *   but expressed in [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV);
+  * 
   * @module
   */
 
@@ -19,15 +22,17 @@ type point = {
 }
 
 /** [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) `xy` coordinates,
-  * between 0.0 and 1.0, used by Zigbee.
+  * between 0.0 and 1.0.
+  * 
+  * Note that Zigbee uses integer values 0 (0x0000) to 65279 (0xFFEF) to express `CurrentX` and `CurrentY`, but
+  * this is exposed as fraction, between 0,0000 and 0.9961, by APIs provided by Hue and deCONZ.
   */
 export type xy = [number, number]
 
 function pointToXy (p: point): xy { return [p.x, p.y] }
 function xyToPoint (xy: xy): point { return { x: xy[0], y: xy[1] } }
 
-/** Colour [gamut](https://en.wikipedia.org/wiki/Gamut).
-  */
+/** Colour [gamut](https://en.wikipedia.org/wiki/Gamut). */
 export type gamut = {
   /** `xy` coordinates for red, between 0.0 and 1.0. */
   r: xy
@@ -37,7 +42,7 @@ export type gamut = {
   b: xy
 }
 
-/** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in
+/** [sRGB](https://en.wikipedia.org/wiki/SRGB) colour in 
   * [HSV](https://en.wikipedia.org/wiki/HSL_and_HSV).
   */
 export type hsv = {
@@ -62,8 +67,8 @@ export type rgb = {
 }
 
 /** Safe default gamut taking into account:
-  * - The maximum value for `CurrentX` and  `CurrentY`, 65279 (0xFEFF),
-  *   as defined by the ZCL spec;
+  * - The maximum value for `CurrentX` and  `CurrentY`, 65279 (0xFEFF) / 65535 (0xFFFF),
+  *   as defined by Zigbee;
   * - A potential division by zero error for `CurrentY`, when translating the
   *   {@link xy} values back to {@link hsv}.
   */
@@ -78,17 +83,17 @@ const gamutPhilips = {
     r: [0.7040, 0.2960],
     g: [0.2151, 0.7106],
     b: [0.1380, 0.0800]
-  },
+  } as gamut,
   B: {
     r: [0.6750, 0.3220],
     g: [0.4090, 0.5180],
     b: [0.1670, 0.0400]
-  },
+  } as gamut,
   C: {
     r: [0.6920, 0.3080],
     g: [0.1700, 0.7000],
     b: [0.1530, 0.0480]
-  }
+  } as gamut
 }
 
 /** Known colour gamuts by manufacturer.
@@ -98,32 +103,32 @@ export const gamutByManufacturer = {
     r: [0.7006, 0.2993],
     g: [0.1387, 0.8148],
     b: [0.1510, 0.0227]
-  },
+  } as gamut,
   'IKEA of Sweden': {
     r: [0.68, 0.31],
     g: [0.11, 0.82],
     b: [0.13, 0.04]
-  },
+  } as gamut,
   innr: {
     r: [0.8817, 0.1033],
     g: [0.2204, 0.7758],
     b: [0.0551, 0.1940]
-  },
+  } as gamut,
   LEDVANCE: {
     r: [0.6972, 0.3027],
     g: [0.1737, 0.6991],
     b: [0.1227, 0.0959]
-  },
+  } as gamut,
   MLI: {
     r: [0.68, 0.31],
     g: [0.11, 0.82],
     b: [0.13, 0.04]
-  },
+  } as gamut,
   OSRAM: {
     r: [0.6850, 0.3149],
     g: [0.1780, 0.7253],
     b: [0.1241, 0.0578]
-  },
+  } as gamut,
   Philips: gamutPhilips,
   'Signify Netherlands B.V.': gamutPhilips
 }
@@ -189,7 +194,7 @@ function closestInGamut (p: point, gamut: gamut): point {
   * @param v - Value, between 0% and 100%.
   * @return The corresponding {@link rgb} value.
   */
-export function hsvToRgb (h: number, s: number, v: number = 100): rgb {
+export function hsvToRgb (h: integer, s: integer, v: integer = 100): rgb {
   h /= 60.0
   s /= 100.0
   v /= 100.0
@@ -254,15 +259,15 @@ export function rgbToHsv (r: number, g: number, b: number): hsv {
 }
 
 /**
-  * Transform {@link hsv} to {link xy}.
+  * Transform {@link hsv} to {@link xy}.
   *
   * See [Hue developer portal](https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/).
   * @param h - Hue, between 0˚ and 360˚.
   * @param s - Saturation, between 0% and 100%.
   * @param gamut - The gamut supported by the light.
-  * @return - The closest matching CIE 1931 colour, x, y between 0.0000 and 1.0000.
+  * @return The closest matching CIE 1931 colour, x, y between 0.0000 and 1.0000.
   */
-export function hsvToXy (h: number, s: number, gamut: gamut = defaultGamut): xy {
+export function hsvToXy (h: integer, s: integer, gamut: gamut = defaultGamut): xy {
   // Gamma correction (inverse sRGB Companding).
   function invCompand (v: number) {
     return v > 0.04045 ? Math.pow((v + 0.055) / (1.0 + 0.055), 2.4) : v / 12.92
@@ -289,7 +294,7 @@ export function hsvToXy (h: number, s: number, gamut: gamut = defaultGamut): xy 
   * See [Hue developer portal](https://developers.meethue.com/develop/application-design-guidance/color-conversion-formulas-rgb-to-xy-and-back/).
   * @param xy - The CIE 1931 xy colour, x, y between 0.0000 and 1.0000.
   * @param gamut - The gamut supported by the light.
-  * @return - The closest matching sRGB colour.
+  * @return The closest matching sRGB colour.
   */
 export function xyToHsv (xy: [number, number], gamut: gamut = defaultGamut): hsv {
   let r!: number, g!: number, b!: number
