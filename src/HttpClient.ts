@@ -3,14 +3,14 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, integer, stringMap } from 'hb-lib-tools'
+import type { Logger, integer, map } from 'hb-lib-tools'
 
 import { EventEmitter, once } from 'node:events'
 import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
 import https from 'node:https'
 import { TLSSocket } from 'tls'
 
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import { toArray, toHost, toObject, toPath, toString, OptionParser } from 'hb-lib-tools/OptionParser'
 
 export class HttpError extends Error {
   request: HttpRequest
@@ -136,7 +136,7 @@ export class HttpClient extends EventEmitter {
   constructor (params: {
     ca?: string | string[]
     checkServerIdentity?: (hostname: string, cert: unknown) => Error | undefined
-    headers?: stringMap
+    headers?: map<string>
     host?: string
     https?: boolean
     ipv6?: boolean
@@ -160,10 +160,10 @@ export class HttpClient extends EventEmitter {
     this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
     this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
     this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
-    const { hostname, port } = OptionParser.toHost('host', params.host ?? 'localhost:80')
+    const { hostname, port } = toHost(params.host ?? 'localhost:80', { key: 'params.host' })
     this.__params = {
       address: undefined as string | undefined,
-      ca: params.ca === undefined ? undefined : OptionParser.toArray('params.ca', params.ca) as string[],
+      ca: params.ca === undefined ? undefined : toArray(params.ca, { key: 'params.ca' }) as string[],
       checkServerIdentity: params.checkServerIdentity,
       headers: params.headers ?? {},
       hostname: hostname ?? 'localhost',
@@ -272,7 +272,7 @@ export class HttpClient extends EventEmitter {
   }
 
   set host (value) {
-    const obj = OptionParser.toHost('host', value)
+    const obj = toHost(value, { key: 'host' })
     this.__params.hostname = obj.hostname
     this.__params.port = obj.port
     this.#setUrl()
@@ -304,7 +304,7 @@ export class HttpClient extends EventEmitter {
   set path (value) {
     this.__params.path = value == null
       ? ''
-      : OptionParser.toPath('path', value)
+      : toPath(value, { key: 'path' })
     this.#setUrl()
   }
 
@@ -322,7 +322,7 @@ export class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async get (resource = '/', headers?: stringMap, suffix?: string) {
+  async get (resource = '/', headers?: map<string>, suffix?: string) {
     return this.request('GET', resource, undefined, headers, suffix)
   }
 
@@ -335,7 +335,7 @@ export class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async put (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
+  async put (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
     return this.request('PUT', resource, body, headers, suffix)
   }
 
@@ -348,7 +348,7 @@ export class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async post (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
+  async post (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
     return this.request('POST', resource, body, headers, suffix)
   }
 
@@ -361,7 +361,7 @@ export class HttpClient extends EventEmitter {
     * @return {object} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async delete (resource: string, body?: unknown, headers?: stringMap, suffix?: string) {
+  async delete (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
     return this.request('DELETE', resource, body, headers, suffix)
   }
 
@@ -377,16 +377,16 @@ export class HttpClient extends EventEmitter {
     * @return {HttpClient.HttpResponse} response - The response.
     * @throws {HttpClient.HttpError} In case of error.
     */
-  async request (method: string, resource: string, body?: unknown, headers?: stringMap, suffix: string = '', info = {}) {
-    method = OptionParser.toString('method', method, { nonEmpty: true }).toUpperCase()
+  async request (method: string, resource: string, body?: unknown, headers?: map<string>, suffix: string = '', info = {}) {
+    method = toString(method, { key: 'method', nonEmpty: true }).toUpperCase()
     if (!http.METHODS.includes(method)) {
       throw new TypeError(`${method}: invalid method`)
     }
-    resource = OptionParser.toString('resource', resource, { nonEmpty: true })
+    resource = toString(resource, { key: 'resource', nonEmpty: true })
     if (body != null && !Buffer.isBuffer(body)) {
       body = this.__params.json
         ? JSON.stringify(body)
-        : OptionParser.toString('body', body)
+        : toString(body, { key: 'body' })
     }
     const requestId = ++this.__requestId
     const url = this.__params.url + (resource === '/' ? '' : resource) +
@@ -526,7 +526,7 @@ export class HttpClient extends EventEmitter {
       })
 
     if (headers != null) {
-      headers = OptionParser.toObject('headers', headers) as stringMap
+      headers = toObject(headers, { key: 'headers' }) as map<string>
       for (const header in headers) {
         request.setHeader(header, headers[header])
       }
