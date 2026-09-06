@@ -3,7 +3,7 @@
 // Library for Homebridge plugins.
 // Copyright © 2019-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, jsonMap, stringMap } from 'hb-lib-tools'
+import type { Logger, jsonMap, map } from 'hb-lib-tools'
 
 import { exec, execFile } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
@@ -114,7 +114,7 @@ const macOsInfo = {
     '15': 'Sequoia',
     '26': 'Tahoe',
     '27': 'Golden Gate'
-  } as stringMap
+  } as map<string>
 }
 
 /** System information.
@@ -124,8 +124,8 @@ class SystemInfo {
     * @param text - The text.
     * @return The parsed text.
     */
-  static parseText (text: string, delimiter = '='): stringMap {
-    const response: stringMap = {}
+  static parseText (text: string, delimiter = '='): map<string> {
+    const response: map<string> = {}
     const lines = text?.split('\n') ?? []
     for (const line of lines) {
       const fields = line.split(delimiter)
