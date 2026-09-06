@@ -46,7 +46,8 @@ function newTypeError (message: string, options: { key?: string, userInput?: boo
   return options.userInput ? new UserInputError(message) : new TypeError(message)
 }
 
-type CallBackFunction = {
+/** Callback function type. */
+export type CallBackFunction = {
   (value: unknown): void
   list?: map<unknown>
 }
@@ -66,6 +67,36 @@ const patterns = {
   uuid: /^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([1-5][0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$/
 }
 /* eslint-enable max-len */
+
+function validateOptions (options: { key?: unknown, nonEmpty?: unknown, userInput?: unknown } = {}) {
+  if (options.key !== undefined) {
+    if (options.key == null) {
+      throw new TypeError('options.key: missing string value')
+    }
+    if (typeof options.key !== 'string') {
+      throw new TypeError('options.key: not a string')
+    }
+    if (options.key === '') {
+      throw new RangeError('options.key: not a non-empty string')
+    }
+  }
+  if (options.nonEmpty !== undefined) {
+    if (options.nonEmpty == null) {
+      throw new TypeError('options.nonEmpty: missing boolean value')
+    }
+    if (typeof options.nonEmpty !== 'boolean') {
+      throw new TypeError('options.nonEmpty: not a boolean')
+    }
+  }
+  if (options.userInput !== undefined) {
+    if (options.userInput == null) {
+      throw new TypeError('options.userInput: missing boolean value')
+    }
+    if (typeof options.userInput !== 'boolean') {
+      throw new TypeError('options.userInput: not a boolean')
+    }
+  }
+}
 
 /** Casts input value to boolean.
   *
@@ -87,6 +118,7 @@ export function toBool (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): boolean {
+  validateOptions(options)
   if (value == null) {
     throw newTypeError('missing boolean value', options)
   }
@@ -130,6 +162,7 @@ export function toInt (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): integer {
+  validateOptions(options)
   const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : toInt(options.min, { key: 'options.min' })
   const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : toInt(options.max, { key: 'options.max' })
   if (max < min) {
@@ -191,6 +224,7 @@ export function toIntString (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): string {
+  validateOptions(options)
   const radix = options.radix === undefined ? 10 : toInt(options.radix, { key: 'options.radix', min: 2, max: 36 })
   const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
 
@@ -231,10 +265,11 @@ export function toNumber (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): number {
+  validateOptions(options)
   const min = options.min === undefined ? -Infinity : toNumber(options.min, { key: 'options.min' })
   const max = options.max === undefined ? Infinity : toNumber(options.max, { key: 'options.max' })
   if (max < min) {
-    throw newRangeError('max: smaller than min')
+    throw newRangeError('options.max: smaller than options.min')
   }
 
   let n: number
@@ -284,6 +319,7 @@ export function toNumberString (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): string {
+  validateOptions(options)
   const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
   const decimals = options.decimals === undefined ? undefined : toInt(options.decimals, { key: 'options.decimals', min: 0, max: 16 })
 
@@ -320,6 +356,7 @@ export function toString (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): string {
+  validateOptions(options)
   if (value == null) {
     if (options.nonEmpty) {
       throw newTypeError('missing string value', options)
@@ -353,6 +390,7 @@ export function toHost (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): Host {
+  validateOptions(options)
   const response: Host = { hostname: '' }
   const s = toString(value, { nonEmpty: true, ...options })
   const list = patterns.host.exec(s)
@@ -361,7 +399,7 @@ export function toHost (
   }
   if (list[1] != null) {
     if (!isIPv6(list[1])) {
-      throw newRangeError(`${list[1]}: not a valid IPv6 address`, options)
+      throw newRangeError(`[${list[1]}]: not a valid IPv6 address`, options)
     }
     response.hostname = '[' + list[1] + ']'
   } else if (isIPv4(list[2])) {
@@ -442,6 +480,7 @@ export function toArray (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): unknown[] {
+  validateOptions(options)
   if (value == null) {
     return []
   }
@@ -472,6 +511,7 @@ export function toObject (
     /** Whether the input value was input by the user. */
     userInput?: boolean
   } = {}): object {
+  validateOptions(options)
   if (value == null) {
     return {}
   }
@@ -499,6 +539,7 @@ export function toFunction (
     /** The key of the input value (for error messages). */
     key?: string
   }): ((...args: unknown[]) => unknown) {
+  validateOptions(options)
   if (value == null) {
     throw newTypeError('missing function value', options)
   }
@@ -526,6 +567,7 @@ export function toAsyncFunction (
     /** The key of the input value (for error messages). */
     key?: string
   }): ((...args: unknown[]) => Promise<unknown>) {
+  validateOptions(options)
   if (value == null) {
     throw newTypeError('missing async function value', options)
   }
@@ -555,6 +597,7 @@ export function toClass (
     /** The superclass that the input value must extend. */
     SuperClass?: unknown
 } = {}): new (...args: unknown[]) => unknown {
+  validateOptions(options)
   const SuperClass = options.SuperClass === undefined ? undefined : toClass(options.SuperClass, { key: 'options.SuperClass' })
 
   if (value == null) {
@@ -589,6 +632,7 @@ export function toInstance (
     /** Check for instance of Class. */
     Class?: unknown
   } = {}): unknown {
+  validateOptions(options)
   const Class = options.Class === undefined ? undefined : toClass(options.Class, { key: 'options.Class' })
 
   if (Class != null) {
@@ -609,16 +653,20 @@ export function toInstance (
   throw newTypeError('not an instance', options)
 }
 
-
-export class Events {
-
+/** {@link OptionParser} events. */
+export interface  Events {
+  /** Emitted when {@link OptionParser.parse parse()} encounters a user input error.
+    * @event
+    * @param error - The user input error.
+    */
+  userInputError: [error: UserInputError]
 }
 
 /** Parser and validator for options and other parameters. */
 class OptionParser extends EventEmitter<Events> {
   _object: map<unknown>
   _userInput: boolean
-  _callbacks: { [key: string]: CallBackFunction }
+  _callbacks: map<CallBackFunction>
 
   /** Creates a new OptionParser instance
     *
@@ -628,7 +676,7 @@ class OptionParser extends EventEmitter<Events> {
     super()
     this._object = object
     this._userInput = userInput
-    this._callbacks = {} as { [key: string]: CallBackFunction }
+    this._callbacks = {}
   }
 
   /** Checks that key is valid and not yet in use. */
@@ -686,7 +734,7 @@ class OptionParser extends EventEmitter<Events> {
   enumKey (
     /** The key. */
     key: string
-  ): OptionParser {
+  ): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
@@ -744,8 +792,8 @@ class OptionParser extends EventEmitter<Events> {
       portKey?: string
     } = {}): this {
     key = this.#toKey(key)
-    const hostnameKey = options.hostnameKey == undefined ? 'hostname' : toString(options.hostnameKey, { key: 'hostnameKey', nonEmpty: true })
-    const portKey = options.portKey == undefined ? 'port' : toString(options.portKey, { key: 'portKey', nonEmpty: true })
+    const hostnameKey = options.hostnameKey === undefined ? 'hostname' : toString(options.hostnameKey, { key: 'hostnameKey', nonEmpty: true })
+    const portKey = options.portKey === undefined ? 'port' : toString(options.portKey, { key: 'portKey', nonEmpty: true })
 
     this._callbacks[key] = (value) => {
       const { hostname, port }  = toHost(value, { key, userInput: this._userInput })
@@ -781,10 +829,10 @@ class OptionParser extends EventEmitter<Events> {
     */
   intKey (key: string, min?: integer, max?: integer): this {
     key = this.#toKey(key)
-    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'min' })
-    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'max' })
+    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'options.min' })
+    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'options.max' })
     if (max < min) {
-      throw newRangeError('max: smaller than min')
+      throw newRangeError('options.max: smaller than options.min')
     }
 
     this._callbacks[key] = (value) => {
@@ -811,13 +859,13 @@ class OptionParser extends EventEmitter<Events> {
         try {
           const e = toString(element, { key: `${key}.${element}`, nonEmpty: true, userInput: this._userInput })
           if (map[e]) {
-            throw newSyntaxError(`${key}.${element}: duplicate key`, { userInput: this._userInput })
+            throw newSyntaxError(`duplicate key: ${e}`, { key: `${key}.${element}`, userInput: this._userInput })
           }
           map[e] = true
           array.push(e)
         } catch (error) {
           if (error instanceof UserInputError) {
-            this.emit('userInputError', `${key}: ${error.message}`)
+            this.emit('userInputError', error)
           } else {
             throw error
           }
@@ -839,7 +887,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  numberKey (key: string, min?: number, max?: number): OptionParser {
+  numberKey (key: string, min?: number, max?: number): this {
     key = this.#toKey(key)
     min = min == null ? -Infinity : toNumber(min, { key: 'min' })
     max = max == null ? Infinity : toNumber(max, { key: 'max' })
@@ -861,7 +909,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  objectKey (key: string): OptionParser {
+  objectKey (key: string): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
@@ -878,7 +926,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  pathKey (key: string): OptionParser {
+  pathKey (key: string): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
@@ -896,7 +944,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  stringKey (key: string, nonEmpty = false): OptionParser {
+  stringKey (key: string, nonEmpty = false): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
@@ -914,7 +962,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} Unknown option.
     * @throws {UserInputError} On error, when value was input by user.
     */
-  parse (options?: map<unknown>): map<unknown> {
+  parse (options: map<unknown>): map<unknown> {
     for (const key in options) {
       try {
         const value = options[key]
@@ -924,10 +972,8 @@ class OptionParser extends EventEmitter<Events> {
         this._callbacks[key](value)
       } catch (error) {
         if (error instanceof UserInputError) {
-          // this.emit('userInputError', `${key}: ${error.message}`)
           this.emit('userInputError', error)
         } else {
-          // error.message = `${key}: ${error.message}`
           throw error
         }
       }
