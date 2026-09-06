@@ -145,7 +145,7 @@ class UpnpClient extends EventEmitter<Events> {
     *
     * A {@link Events.deviceFound deviceFound} event will be emitted on each
     * response received, that passes the filters.
-    * @returns Promise that resolves to a map of the found devices.
+    * @return Promise that resolves to a map of the found devices.
     */
   async search (): Promise<{ [key: string]: stringMap }> {
     const result = {} as { [key: string]: stringMap }
