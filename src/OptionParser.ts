@@ -3,12 +3,16 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
+/** Parser and validator for options and other parameters.
+  * @module 
+  */
+
 import type { integer, map } from 'hb-lib-tools'
 
-type hostname = string
-type Host = { hostname: hostname, port?: integer }
-type host = string
-type path = string
+export type hostname = string | 'localhost'
+export type Host = { hostname: hostname, port?: integer }
+export type host = string | 'localhost'
+export type path = string | ''
 
 import { EventEmitter } from 'node:events'
 import { posix } from 'node:path'
@@ -19,23 +23,32 @@ import { isIPv4, isIPv6 } from 'node:net'
 export class UserInputError extends Error {}
 
 // Create a new RangeError or UserInputError, depending on userInput.
-function newRangeError (message: string, userInput = false) {
-  return userInput ? new UserInputError(message) : new RangeError(message)
+function newRangeError (message: string, options: { key?: string, userInput?: boolean } = {}): RangeError | UserInputError {
+  if (options.key != null) {
+    message = `${options.key}: ${message}`
+  }
+  return options.userInput ? new UserInputError(message) : new RangeError(message)
 }
 
 // Create a new SyntaxError or UserInputError, depending on userInput.
-function newSyntaxError (message: string, userInput = false) {
-  return userInput ? new UserInputError(message) : new SyntaxError(message)
+function newSyntaxError (message: string, options: { key?: string, userInput?: boolean } = {}): SyntaxError | UserInputError {
+  if (options.key != null) {
+    message = `${options.key}: ${message}`
+  }
+  return options.userInput ? new UserInputError(message) : new SyntaxError(message)
 }
 
 // Create a new TypeError or UserInputError, depending on userInput.
-function newTypeError (message: string, userInput = false) {
-  return userInput ? new UserInputError(message) : new TypeError(message)
+function newTypeError (message: string, options: { key?: string, userInput?: boolean } = {}): TypeError | UserInputError {
+  if (options.key != null) {
+    message = `${options.key}: ${message}`
+  }
+  return options.userInput ? new UserInputError(message) : new TypeError(message)
 }
 
-export type CallBackFunction = {
+type CallBackFunction = {
   (value: unknown): void
-  list?: map
+  list?: map<unknown>
 }
 
 /* eslint-disable max-len */
@@ -54,525 +67,556 @@ const patterns = {
 }
 /* eslint-enable max-len */
 
-/** Parser and validator for options and other parameters.
+/** Casts input value to boolean.
   *
-  * @extends EventEmitter
-  * emits userInputError
-  * emits warning
+  * Valid input values are:
+  * - A boolean;
+  * - A number with value 0 (false) or 1 (true);
+  * - A string with value 'false', 'no', 'off', or '0' (false); or
+  * with value 'true', 'yes', 'on', or '1' (true).
+  * @return The input value as boolean.
+  * @throws On invalid input.
   */
-class OptionParser extends EventEmitter {
+export function toBool (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): boolean {
+  if (value == null) {
+    throw newTypeError('missing boolean value', options)
+  }
+  if (typeof value === 'boolean') {
+    return value
+  }
+  if (typeof value === 'number') {
+    value = '' + value
+  }
+  if (typeof value === 'string') {
+    value = value.toLowerCase()
+    if (['true', 'yes', 'on', '1'].includes(value as string)) {
+      return true
+    }
+    if (['false', 'no', 'off', '0'].includes(value as string)) {
+      return false
+    }
+  }
+  throw newTypeError('not a boolean', options)
+}
 
-  static get UserInputError () { return UserInputError }
-
-  /** Casts input value to boolean.
-    *
-    * Valid input values are:
-    * - A boolean;
-    * - A number with value 0 (false) or 1 (true);
-    * - A string with value 'false', 'no', 'off', or '0' (false); or
-    * with value 'true', 'yes', 'on', or '1' (true).
-    * @param {!string} key - The key of the input value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {boolean} The value as boolean.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toBool (key: string, value: unknown, options: { userInput?: boolean} = {}): boolean {
-    if (!['key', 'nonEmpty', 'userInput'].includes(key)) {
-      OptionParser.toString('key', key, { nonEmpty: true })
-    }
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-
-    if (value == null) {
-      throw newTypeError(`${key}: missing boolean value`, userInput)
-    }
-    if (typeof value === 'boolean') {
-      return value
-    }
-    if (typeof value === 'number') {
-      value = '' + value
-    }
-    if (typeof value === 'string') {
-      value = value.toLowerCase()
-      if (['true', 'yes', 'on', '1'].includes(value as string)) {
-        return true
-      }
-      if (['false', 'no', 'off', '0'].includes(value as string)) {
-        return false
-      }
-    }
-    throw newTypeError(`${key}: not a boolean`, userInput)
+/** Casts input value to integer, optionally clamped between min and max.
+  *
+  * Valid input values are:
+  * - A boolean: false (0) or true (1);
+  * - A number with an integer value;
+  * - A string holding an integer value in decimal, binary, octal or hexadecimal notation.
+  * @return The input value as integer.
+  * @throws On invalid input.
+  */
+export function toInt (
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Minimum value. */
+    min?: integer,
+    /** Maximum value. */
+    max?: integer,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): integer {
+  const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : toInt(options.min, { key: 'options.min' })
+  const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : toInt(options.max, { key: 'options.max' })
+  if (max < min) {
+    throw newRangeError('options.max: smaller than options.min')
   }
 
-  /** Casts input value to integer, optionally clamped between min and max.
-    *
-    * Valid input values are:
-    * - A boolean: false (0) or true (1);
-    * - A number with an integer value;
-    * - A string holding an integer value in decimal, binary, octal or hexadecimal notation.
-    * @param {!string} key - The key of the input value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?integer} [options.min=Number.MIN_SAFE_INTEGER] - Minimum value returned.
-    * @param {?integer} [options.max=Number.MAX_SAFE_INTEGER] - Maximum value returned.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {integer} The value as integer.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toInt (key: string, value: unknown, options: { min?: integer, max?: integer, userInput?: boolean } = {}): integer {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : OptionParser.toInt('min', options.min)
-    const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : OptionParser.toInt('max', options.max)
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-    if (max < min) {
-      throw newRangeError('max: smaller than min')
-    }
-
-    let i: integer
-    if (value == null) {
-      throw newTypeError(`${key}: missing integer value`, userInput)
-    }
-    if (typeof value === 'number') {
-      value = '' + value
-    }
-    if (typeof value === 'boolean') {
-      i = value ? 1 : 0
-    } else if (typeof value === 'string') {
-      if (patterns.int.test(value)) {
-        i = parseInt(value)
-      } else if (patterns.intHex.test(value)) {
-        i = parseInt(value, 16)
-      } else if (patterns.intOct.test(value)) {
-        const a = patterns.intOct.exec(value)
-        i = parseInt(a![1] + a![2], 8)
-      } else if (patterns.intBin.test(value)) {
-        const a = patterns.intBin.exec(value)
-        i = parseInt(a![1] + a![2], 2)
-      } else {
-        throw newTypeError(`${key}: not an integer`, userInput)
-      }
+  let i: integer
+  if (value == null) {
+    throw newTypeError('missing integer value', options)
+  }
+  if (typeof value === 'number') {
+    value = '' + value
+  }
+  if (typeof value === 'boolean') {
+    i = value ? 1 : 0
+  } else if (typeof value === 'string') {
+    if (patterns.int.test(value)) {
+      i = parseInt(value)
+    } else if (patterns.intHex.test(value)) {
+      i = parseInt(value, 16)
+    } else if (patterns.intOct.test(value)) {
+      const a = patterns.intOct.exec(value)
+      i = parseInt(a![1] + a![2], 8)
+    } else if (patterns.intBin.test(value)) {
+      const a = patterns.intBin.exec(value)
+      i = parseInt(a![1] + a![2], 2)
     } else {
-      throw newTypeError(`${key}: not an integer`, userInput)
+      throw newTypeError('not an integer', options)
     }
-    return Math.min(Math.max(i, min), max)
+  } else {
+    throw newTypeError('not an integer', options)
   }
+  return Math.min(Math.max(i, min), max)
+}
 
-  /** Converts an integer value to a formatted string.
-    *
-    * The integer value is converted to a string in the specified radix.
-    * The string is prepended with spaces (radix 10) or zeroes (other radix
-    * values) to match the minimum length.
-    *
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {integer} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?integer} [options.min=Number.MIN_SAFE_INTEGER] - Minimum value returned.
-    * @param {?integer} [options.max=Number.MAX_SAFE_INTEGER] - Maximum value returned.
-    * @param {integer} [options.radix=10] - The radix.
-    * @param {integer} [options.length=0] - The minimum length of the formatted string.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The formatted string.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toIntString (key: string, value: unknown, options: { min?: integer, max?: integer, radix?: integer, length?: integer, userInput?: boolean } = {}): string { // eslint-disable-line max-len
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min === undefined ? Number.MIN_SAFE_INTEGER : OptionParser.toInt('min', options.min)
-    const max = options.max === undefined ? Number.MAX_SAFE_INTEGER : OptionParser.toInt('max', options.max)
-    const radix = options.radix === undefined ? 10 : OptionParser.toInt('radix', options.radix, { min: 2, max: 36 })
-    const length = options.length === undefined ? 0 : OptionParser.toInt('length', options.length, { min: 0, max: 32 })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
+/** Converts an integer value to a formatted string.
+  *
+  * The integer value is converted to a string in the specified radix.
+  * The string is prepended with spaces (radix 10) or zeroes (other radix
+  * values) to match the minimum length.
+  * @return The input value as integer, formatted as string.
+  * @throws On invalid input.
+  */
+export function toIntString (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Minimum value. */
+    min?: integer,
+    /** Maximum value. */
+    max?: integer,
+    /** The radix, default: 10. */
+    radix?: integer,
+    /** The minimum length of the formatted string, default: 0. */
+    length?: integer,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): string {
+  const radix = options.radix === undefined ? 10 : toInt(options.radix, { key: 'options.radix', min: 2, max: 36 })
+  const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
 
-    const i = OptionParser.toInt(key, value, { min, max, userInput })
-    if (i < 0 && radix !== 10) {
-      throw newRangeError(`${key}: not an unsigned integer`, userInput)
-    }
-    const s = i.toString(radix).toUpperCase()
-    if (s.length > length) {
-      return s
-    }
-    const prefix = radix === 10
-      ? '                                '
-      : '00000000000000000000000000000000'
-    return (prefix + s).slice(-length)
+  const i = toInt(value, options)
+  if (i < 0 && radix !== 10) {
+    throw newRangeError('not an unsigned integer', options)
   }
-
-  /** Casts input value to number, optionally clamped between min and max.
-    *
-    * Valid input values are:
-    * - A boolean: false (0) or true (1);
-    * - A real number (not: NaN, -Infinity, Infinity);
-    * - A string holding a number value.
-    * @param {!string} key - The key of the input value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?integer} [options.min=-Infinity] - Minimum value returned.
-    * @param {?integer} [options.max=Infinity] - Maximum value returned.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {number} The value as number.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toNumber (key: string, value: unknown, options: { min?: number, max?: number, userInput?: boolean } = {}): number {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min === undefined ? -Infinity : OptionParser.toNumber('min', options.min)
-    const max = options.max === undefined ? Infinity : OptionParser.toNumber('max', options.max)
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-    if (max < min) {
-      throw newRangeError('max: smaller than min')
-    }
-
-    let n: number
-    if (value == null) {
-      throw newTypeError(`${key}: missing number value`, userInput)
-    }
-    if (typeof value === 'number') {
-      value = '' + value
-    }
-    if (typeof value === 'boolean') {
-      n = value ? 1 : 0
-    } else if (typeof value === 'string') {
-      if (patterns.number.test(value)) {
-        n = parseFloat(value)
-      } else {
-        throw newTypeError(`${key}: not a number`, userInput)
-      }
-    } else {
-      throw newTypeError(`${key}: not a number`, userInput)
-    }
-    return Math.min(Math.max(n, min), max)
-  }
-
-  /** Converts an integer value to a formatted string.
-    *
-    * The integer value is converted to a string, optionally with a fixed
-    * number of decimals.
-    * The string is prepended with `0`s to match the minimum length.
-    *
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {integer} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?integer} [options.min=-Infinity] - Minimum value returned.
-    * @param {?integer} [options.max=Infinity] - Maximum value returned.
-    * @param {integer} [options.length=0] - The minimum length of the formatted string.
-    * @param {?integer} options.decimals - The fixed number of decimals
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The formatted string.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toNumberString (key: string, value: unknown, options: { min?: number, max?: number, length?: integer, decimals?: integer, userInput?: boolean } = {}): string { // eslint-disable-line max-len
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const min = options.min === undefined ? -Infinity : OptionParser.toNumber('min', options.min)
-    const max = options.max === undefined ? Infinity : OptionParser.toNumber('max', options.max)
-    const length = options.length === undefined ? 0 : OptionParser.toInt('options.length', options.length, { min: 0, max: 32 })
-    const decimals = options.decimals === undefined ? undefined : OptionParser.toInt('options.decimals', options.decimals, { min: 0, max: 16 })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-
-    let n = OptionParser.toNumber(key, value, { min, max, userInput })
-    if (decimals != null) {
-      const factor = Math.pow(10, decimals)
-      n = (Math.round(n * factor) / factor)
-    }
-    const s = n.toString(10)
-    if (s.length > length) {
-      return s
-    }
-    return ('                                ' + s).slice(-length)
-  }
-
-  /** Casts input value to string, optionally non-empty.
-    *
-    * Valid values are:
-    * - A string.
-    * - A boolean.
-    * - A number.
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.nonEmpty=false] - Empty string is invalid value.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The value as string.
-    * @throws {TypeError} On invalid input value.
-    * @throws {RangeError} On empty string, when options.nonEmpty has been set.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toString (key: string, value: unknown, options: { nonEmpty?: boolean, userInput?: boolean } = {}): string {
-    if (key !== 'key') {
-      OptionParser.toString('key', key, { nonEmpty: true })
-    }
-    const nonEmpty = options.nonEmpty === undefined ? false : OptionParser.toBool('nonEmpty', options.nonEmpty)
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-
-    let s: string
-    if (value == null && nonEmpty) {
-      throw newTypeError(`${key}: missing string value`, userInput)
-    } else if (value == null) {
-      s = ''
-    } else if (typeof value === 'boolean' || typeof value === 'number') {
-      s = '' + value
-    } else if (typeof value === 'string') {
-      s = value
-    } else {
-      throw newTypeError(`${key}: not a string`, userInput)
-    }
-    if (nonEmpty && s === '') {
-      throw newRangeError(`${key}: not a non-empty string`, userInput)
-    }
+  const s = i.toString(radix).toUpperCase()
+  if (s.length > length) {
     return s
   }
+  const prefix = radix === 10
+    ? '                                '
+    : '00000000000000000000000000000000'
+  return (prefix + s).slice(-length)
+}
 
-  /** Casts input value to hostname[:port].
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {Host} The value as { hostname: hostname, port: port }.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toHost (key: string, value: unknown, options: { userInput?: boolean } = {}): Host {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
+/** Casts input value to number, optionally clamped between min and max.
+  *
+  * Valid input values are:
+  * - A boolean: false (0) or true (1);
+  * - A real number (not: NaN, -Infinity, Infinity);
+  * - A string holding a number value.
+  * @return The input value as number.
+  * @throws On invalid input.
+  */
+export function toNumber (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Minimum value. */
+    min?: number,
+    /** Maximum value. */
+    max?: number,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): number {
+  const min = options.min === undefined ? -Infinity : toNumber(options.min, { key: 'options.min' })
+  const max = options.max === undefined ? Infinity : toNumber(options.max, { key: 'options.max' })
+  if (max < min) {
+    throw newRangeError('max: smaller than min')
+  }
 
-    const s = OptionParser.toString(key, value, { nonEmpty: true, userInput })
-    const response: Host = { hostname: '' }
-    const list = patterns.host.exec(s)
-    if (list == null) {
-      throw newRangeError(`${key}: not a valid host`, userInput)
-    }
-    if (list[1] != null) {
-      if (!isIPv6(list[1])) {
-        throw newRangeError(`${key}: [${list[1]}]: not a valid IPv6 address`, userInput)
-      }
-      response.hostname = '[' + list[1] + ']'
-    } else if (isIPv4(list[2])) {
-      response.hostname = list[2].split('.').map((byte) => {
-        return parseInt(byte)
-      }).join('.')
-    } else if (patterns.hostname.test(list[2])) {
-      response.hostname = list[2]
+  let n: number
+  if (value == null) {
+    throw newTypeError('missing number value', options)
+  }
+  if (typeof value === 'number') {
+    value = '' + value
+  }
+  if (typeof value === 'boolean') {
+    n = value ? 1 : 0
+  } else if (typeof value === 'string') {
+    if (patterns.number.test(value)) {
+      n = parseFloat(value)
     } else {
-      throw newRangeError(`${key}: ${list[2]}: not a valid hostname or IPv4 address`, userInput)
+      throw newTypeError('not a number', options)
     }
-    if (list[3] != null) {
-      const port = parseInt(list[3], 10)
-      if (port < 0 || port > 65535) {
-        throw newRangeError(`${key}: ${port}: not a valid port`, userInput)
-      }
-      response.port = port
+  } else {
+    throw newTypeError('not a number', options)
+  }
+  return Math.min(Math.max(n, min), max)
+}
+
+/** Converts an integer value to a formatted string.
+  *
+  * The integer value is converted to a string, optionally with a fixed
+  * number of decimals.
+  * The string is prepended with `0`s to match the minimum length.
+  * @return The value as number formatted asstring.
+  * @throws On invalid input.
+  */
+export function toNumberString (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Minimum value. */
+    min?: number,
+    /** Maximum value. */
+    max?: number,
+    /** The minimum length of the formatted string.  Default: 0.*/
+    length?: integer,
+    /** The fixed number of decimals.  */
+    decimals?: integer,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): string {
+  const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
+  const decimals = options.decimals === undefined ? undefined : toInt(options.decimals, { key: 'options.decimals', min: 0, max: 16 })
+
+  let n = toNumber(value, options)
+  if (decimals != null) {
+    const factor = Math.pow(10, decimals)
+    n = (Math.round(n * factor) / factor)
+  }
+  const s = n.toString(10)
+  if (s.length > length) {
+    return s
+  }
+  return ('                                ' + s).slice(-length)
+}
+
+/** Casts input value to string, optionally non-empty.
+  *
+  * Valid values are:
+  * - A string.
+  * - A boolean.
+  * - A number.
+  * @return The input value as string.
+  * @throws On invalid input.
+  */
+export function toString (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Empty string is invalid value. */
+    nonEmpty?: boolean,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): string {
+  if (value == null) {
+    if (options.nonEmpty) {
+      throw newTypeError('missing string value', options)
+    } else {
+      return ''
     }
-    return response
   }
-
-  /** Casts input value to hostname[:port].
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The value as hostname[:port].
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toHostString (key: string, value: unknown, options: { userInput?: boolean } = {}): host {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-
-    const { hostname, port } = OptionParser.toHost(key, value, { userInput })
-    return hostname + (port != null ? ':' + port : '')
+  if (typeof value === 'boolean' || typeof value === 'number') {
+    value = '' + value
   }
+  if (typeof value !== 'string') {
+    throw newTypeError('not a string', options)
+  }
+  if (options.nonEmpty && value === '') {
+    throw newRangeError('not a non-empty string', options)
+  }
+  return value
+}
 
-  /** Casts input value to path.
-    *
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The value as normalised resource path.
-    * @throws {TypeError} On invalid input value.
-    * @throws {RangeError} On empty string, on string not starting with '/'.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toPath (key: string, value: unknown, options: { userInput?: boolean } = {}): path {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-
-    const path = OptionParser.toString(key, value, { nonEmpty: true, userInput })
-    if (path[0] !== '/') {
-      throw newRangeError(`${key}: ${path}: not a valid path`, userInput)
+/** Casts input value to {@link Host}.
+  * @return The input value as {@link Host}.
+  * @throws On invalid input.
+  */
+export function toHost (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): Host {
+  const response: Host = { hostname: '' }
+  const s = toString(value, { nonEmpty: true, ...options })
+  const list = patterns.host.exec(s)
+  if (list == null) {
+    throw newRangeError('not a valid host', options)
+  }
+  if (list[1] != null) {
+    if (!isIPv6(list[1])) {
+      throw newRangeError(`${list[1]}: not a valid IPv6 address`, options)
     }
-    return posix.normalize(path)
+    response.hostname = '[' + list[1] + ']'
+  } else if (isIPv4(list[2])) {
+    response.hostname = list[2].split('.').map((byte) => {
+      return parseInt(byte)
+    }).join('.')
+  } else if (patterns.hostname.test(list[2])) {
+    response.hostname = list[2]
+  } else {
+    throw newRangeError(`${list[2]}: not a valid hostname or IPv4 address`, options)
   }
+  if (list[3] != null) {
+    const port = parseInt(list[3], 10)
+    if (port < 0 || port > 65535) {
+      throw newRangeError(`${port}: not a valid port`, options)
+    }
+    response.port = port
+  }
+  return response
+}
 
-  /** Casts input value to array.
-    *
-    * Valid values are:
-    * - Null (empty array);
-    * - A boolean, number, or string (singleton array);
-    * - An array.
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {string} The value as array.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toArray (key: string, value: unknown, options: { userInput?: boolean } = {}): unknown[] {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
+/** Casts input value to {@link host}.
+  * @return The input value as {@link host}.
+  * @throws On invalid input.
+  */
+export function toHostString (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): host {
+  const { hostname, port } = toHost(value, options)
+  return hostname + (port != null ? ':' + port : '')
+}
 
+/** Casts input value to {@link path}.
+  * @return The input value as {@link path}.
+  * @throws On invalid input.
+  */
+export function toPath (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): path {
+  const path = toString(value, { nonEmpty: true, ...options })
+
+  if (path[0] !== '/') {
+    throw newRangeError(`${path}: not a valid path`, options)
+  }
+  return posix.normalize(path)
+}
+
+/** Casts input value to array.
+  *
+  * Valid values are:
+  * - Null (empty array);
+  * - A boolean, number, or string (singleton array);
+  * - An array.
+  * @return The input value as array.
+  * @throws On invalid input.
+  */
+export function toArray (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): unknown[] {
+  if (value == null) {
+    return []
+  }
+  if (['boolean', 'number', 'string'].includes(typeof value)) {
+    return [value]
+  }
+  if (Array.isArray(value)) {
+    return value
+  }
+  throw newTypeError('not an array', options)
+}
+
+/** Casts input value to object.
+  *
+  * Valid values are:
+  * - Null (empty object);
+  * - A proper object (i.e. not a class instance).
+  * @return The input value as object.
+  * @throws On invalid input.
+  */
+export function toObject (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string,
+    /** Whether the input value was input by the user. */
+    userInput?: boolean
+  } = {}): object {
+  if (value == null) {
+    return {}
+  }
+  if (typeof value !== 'object' || value.constructor.name !== 'Object') {
+    throw newTypeError('not an object', options)
+  }
+  return value as object
+}
+
+// Do we still need toFunction(), toAsyncFunction(), toClass(), and toInstance()?
+// Or can these be handled by TypeScript type checking?
+
+/** Casts input value to function.
+  *
+  * Valid values are:
+  * - A proper function (i.e. not a class).
+  * @return The input value as function.
+  * @throws On invalid input.
+  */
+export function toFunction (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string
+  }): ((...args: unknown[]) => unknown) {
+  if (value == null) {
+    throw newTypeError('missing function value', options)
+  }
+  if (
+    typeof value === 'function' && value.prototype == null &&
+    value.constructor.name === 'Function'
+  ) {
+    return value as (...args: unknown[]) => unknown
+  }
+  throw newTypeError('not a function', options)
+}
+
+/** Casts input value to async function.
+  *
+  * Valid values are:
+  * - A proper async function.
+  * @return The input value as async function.
+  * @throws On invalid input.
+  */
+export function toAsyncFunction (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string
+  }): ((...args: unknown[]) => Promise<unknown>) {
+  if (value == null) {
+    throw newTypeError('missing async function value', options)
+  }
+  if (
+    typeof value === 'function' &&
+    value.constructor.name === 'AsyncFunction'
+  ) {
+    return value as (...args: unknown[]) => Promise<unknown>
+  }
+  throw newTypeError('not an async function', options)
+}
+
+/** Casts input value to class.
+  *
+  * Valid values are:
+  * - A proper Class or function with a prototype.
+  * @return The input value as Class.
+  * @throws On invalid input.
+  */
+export function toClass (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string
+    /** The superclass that the input value must extend. */
+    SuperClass?: unknown
+} = {}): new (...args: unknown[]) => unknown {
+  const SuperClass = options.SuperClass === undefined ? undefined : toClass(options.SuperClass, { key: 'options.SuperClass' })
+
+  if (value == null) {
+    throw newTypeError('missing class value', options)
+  }
+  if (typeof value !== 'function' || value.prototype == null) {
+    throw newTypeError('not a class', options)
+  }
+  if (
+    SuperClass != null && value !== SuperClass &&
+    !(value.prototype instanceof SuperClass)
+  ) {
+    throw newTypeError(`not a subclass of ${SuperClass.name}`, options)
+  }
+  return value as new (...args: unknown[]) => unknown
+}
+
+/** Casts input value to class instance.
+  *
+  * Valid values are:
+  * - A class instance or a proper function.
+  * @return The input value as Class.
+  * @throws On invalid input.
+  */
+export function toInstance (
+  /** The input value. */
+  value: unknown,
+  /** Options. */
+  options: {
+    /** The key of the input value (for error messages). */
+    key?: string
+    /** Check for instance of Class. */
+    Class?: unknown
+  } = {}): unknown {
+  const Class = options.Class === undefined ? undefined : toClass(options.Class, { key: 'options.Class' })
+
+  if (Class != null) {
     if (value == null) {
-      return []
+      throw newTypeError(`missing instance of ${Class.name} value`, options)
     }
-    if (['boolean', 'number', 'string'].includes(typeof value)) {
-      return [value]
-    }
-    if (Array.isArray(value)) {
+    if (value instanceof Class) {
       return value
     }
-    throw newTypeError(`${key}: not an array`, userInput)
+    throw newTypeError(`not an instance of ${Class.name}`, options)
   }
-
-  /** Casts input value to object.
-    *
-    * Valid values are:
-    * - Null (empty object);
-    * - A proper object (i.e. not a class instance).
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {boolean} [options.userInput=false] - Value was input by user.
-    * @returns {Object} The value.
-    * @throws {TypeError} On invalid input value.
-    * @throws {UserError} On error, when value was input by user.
-    */
-  static toObject (key: string, value: unknown, options: { userInput?: boolean } = {}): map {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const userInput = options.userInput === undefined ? false : OptionParser.toBool('userInput', options.userInput)
-    
-    if (value == null) {
-      return {}
-    }
-    if (typeof value !== 'object' || value == null || value.constructor.name !== 'Object') {
-      throw newTypeError(`${key}: not an object`, userInput)
-    }
-    return value as map
+  if (value == null) {
+    return null
   }
-
-  /** Casts input value to function.
-    *
-    * Valid values are:
-    * - A proper function (i.e. not a class).
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @returns {function} The value.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toFunction (key: string, value: unknown): ((...args: unknown[]) => unknown) {
-    OptionParser.toString('key', key, { nonEmpty: true })
-
-    if (value == null) {
-      throw new TypeError(`${key}: missing function value`)
-    }
-    if (
-      typeof value === 'function' && value.prototype == null &&
-      value.constructor.name === 'Function'
-    ) {
-      return value as (...args: unknown[]) => unknown
-    }
-    throw new TypeError(`${key}: not a function`)
+  if (typeof value === 'object' && value.constructor.name != null) {
+    return value
   }
+  throw newTypeError('not an instance', options)
+}
 
-  /** Casts input value to function.
-    *
-    * Valid values are:
-    * - A proper async function.
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @returns {function} The value.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toAsyncFunction (key: string, value: unknown): ((...args: unknown[]) => Promise<unknown>) {
-    OptionParser.toString('key', key, { nonEmpty: true })
-  
-    if (value == null) {
-      throw new TypeError(`${key}: missing async function value`)
-    }
-    if (
-      typeof value === 'function' &&
-      value.constructor.name === 'AsyncFunction'
-    ) {
-      return value as (...args: unknown[]) => Promise<unknown>
-    }
-    throw new TypeError(`${key}: not an async function`)
-  }
 
-  /** Casts input value to class.
-    *
-    * Valid values are:
-    * - A proper Class or function with a prototype.
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?Class} options.SuperClass - Check for subclass of SuperClass.
-    * @returns {*} The value.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toClass (key: string, value: unknown, options: { SuperClass?: unknown } = {}): new (...args: unknown[]) => unknown {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const SuperClass = options.SuperClass === undefined ? undefined : OptionParser.toClass('SuperClass', options.SuperClass)
+export class Events {
 
-    if (value == null) {
-      throw new TypeError(`${key}: missing class value`)
-    }
-    if (typeof value !== 'function' || value.prototype == null) {
-      throw new TypeError(`${key}: not a class`)
-    }
-    if (
-      SuperClass != null && value !== SuperClass &&
-      !(value.prototype instanceof SuperClass)
-    ) {
-      throw new TypeError(`${key}: not a subclass of ${SuperClass.name}`)
-    }
-    return value as new (...args: unknown[]) => unknown
-  }
+}
 
-  /** Casts input value to class instance.
-    *
-    * Valid values are:
-    * - A class instance or a proper function.
-    * @param {!string} key - The key of the value (for error messages).
-    * @param {*} value - The input value.
-    * @param {Object} [options] - Additional options.
-    * @param {?Class} options.Class - Check for instance of Class.
-    * @returns {Class} The value.
-    * @throws {TypeError} On invalid input value.
-    */
-  static toInstance (key: string, value: unknown, options: { Class?: unknown } = {}): unknown {
-    OptionParser.toString('key', key, { nonEmpty: true })
-    const Class = options.Class === undefined ? undefined : OptionParser.toClass('Class', options.Class)
-
-    if (Class != null) {
-      if (value == null) {
-        throw new TypeError(`${key}: missing instance of ${Class.name} value`)
-      }
-      if (value instanceof Class) {
-        return value
-      }
-      throw new TypeError(`${key}: not an instance of ${Class.name}`)
-    }
-    if (value == null) {
-      return null
-    }
-    if (typeof value === 'object' && value.constructor.name != null) {
-      return value
-    }
-    throw new TypeError(`${key}: not an instance`)
-  }
-
-  _object: map
+/** Parser and validator for options and other parameters. */
+class OptionParser extends EventEmitter<Events> {
+  _object: map<unknown>
   _userInput: boolean
   _callbacks: { [key: string]: CallBackFunction }
 
@@ -580,97 +624,76 @@ class OptionParser extends EventEmitter {
     *
     * @param {boolean} [userInput=false] - Options were input by user.
     */
-  constructor (object: map = {}, userInput: boolean = false) {
+  constructor (object: map<unknown> = {}, userInput: boolean = false) {
     super()
     this._object = object
     this._userInput = userInput
     this._callbacks = {} as { [key: string]: CallBackFunction }
   }
 
-  /** Checks that key is valid and not yet in use.
-    *
-    * @param {!string} key - The key.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  #toKey (key: string): string {
-    key = OptionParser.toString('key', key, { nonEmpty: true })
+  /** Checks that key is valid and not yet in use. */
+  #toKey (
+    /** The key. */
+    key: string
+  ): string {
+    key = toString(key, { key: 'key', nonEmpty: true })
     if (this._callbacks[key] != null) {
       throw new SyntaxError(`${key}: duplicate key`)
     }
     return key
   }
 
-  /** Defines a key that takes an array as value.
-    *
-    * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  arrayKey (key: string): OptionParser {
+  /** Defines a key that takes an array as value. */
+  arrayKey (
+    /** The key. */
+    key: string
+  ): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toArray(key, value, { userInput: this._userInput })
+      this._object[key] = toArray(value, { key, userInput: this._userInput })
     }
     return this
   }
 
-  /** Defines a key that takes an async function as value.
-    *
-    * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  asyncFunctionKey (key: string): OptionParser {
+  /** Defines a key that takes an async function as value. */
+  asyncFunctionKey (
+    /** The key. */
+    key: string
+  ): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toAsyncFunction(key, value)
+      this._object[key] = toAsyncFunction(value, { key })
     }
     return this
   }
 
-  /** Defines a key that takes a boolean value.
-    *
-    * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  boolKey (key: string): OptionParser {
+  /** Defines a key that takes a boolean value. */
+  boolKey (
+    /** The key. */
+    key: string
+  ): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toBool(key, value, { userInput: this._userInput })
+      this._object[key] = toBool(value, { key, userInput: this._userInput })
     }
     return this
   }
 
-  /** Defines a key that takes an enum value.
-    *
-    * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  enumKey (key: string): OptionParser {
+  /** Defines a key that takes an enum value. */
+  enumKey (
+    /** The key. */
+    key: string
+  ): OptionParser {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
-      const s = OptionParser.toString(
-        key, value, { nonEmpty: true, userInput: this._userInput }
-      )
+      const s = toString(value, { key, nonEmpty: true, userInput: this._userInput })
       const callback: CallBackFunction = this._callbacks[key].list![s] as CallBackFunction
       if (callback == null) {
-        throw newRangeError(`${s}: invalid ${key}`, this._userInput)
+        throw newRangeError(`${s}: invalid ${key}`, { userInput: this._userInput })
       }
       this._object[key] = value
       callback(value)
@@ -679,60 +702,53 @@ class OptionParser extends EventEmitter {
     return this
   }
 
-  /** Defines a value for an enum key.
-    *
-    * @param {!string} key - The key.
-    * @param {!string} value - The key.
-    * @param {?function} callback - Function to call when enum value is present.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  enumKeyValue (key: string, value: unknown, callback = () => {}): OptionParser {
-    key = OptionParser.toString('key', key, { nonEmpty: true })
-    const s = OptionParser.toString('value', value, { nonEmpty: true })
-    OptionParser.toFunction(key, this._callbacks[key])
-    callback = OptionParser.toFunction('callback', callback)
+  /** Defines a value for an enum key. */
+  enumKeyValue (
+    /** The enum key. */
+    key: string,
+    /** The enum value. */
+    value: string,
+    /** Function to call when enum value is present. */
+    callback = () => {}
+  ): this {
+    key = toString(key, { key, nonEmpty: true })
+    const s = toString(value, { key: 'value', nonEmpty: true })
+    toFunction(this._callbacks[key], { key })
+    callback = toFunction(callback, { key: 'callback' })
 
     this._callbacks[key].list![s] = callback
     return this
   }
 
-  /** Defines a key that takes a function as value.
-    *
-    * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  functionKey (key: string): OptionParser {
+  /** Defines a key that takes a function as value. */
+  functionKey (
+    /** The key. */
+    key: string
+  ): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toFunction(key, value)
+      this._object[key] = toFunction(value, { key })
     }
     return this
   }
 
-  /** Defines a key that takes a hostname[:port] as value.
-    *
-    * @param {!string} key - The key.
-    * @param {string} [hostnameKey=hostname] - The key for the hostname.
-    * @param {string} [portKey=port] - The key for the port.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  hostKey (key = 'host', hostnameKey = 'hostname', portKey = 'port'): OptionParser {
+  /** Defines a key that takes a hostname[:port] as value. */
+  hostKey (
+    /** The key.  Default: 'host'. */
+    key: string = 'host',
+    options: {
+      /** The key for the hostname.  Default: 'hostname'. */
+      hostnameKey?: string,
+      /** The key for the port.  Default: 'port'. */
+      portKey?: string
+    } = {}): this {
     key = this.#toKey(key)
-    hostnameKey = OptionParser.toString('hostnameKey', hostnameKey, { nonEmpty: true })
-    portKey = OptionParser.toString('portKey', portKey, { nonEmpty: true })
+    const hostnameKey = options.hostnameKey == undefined ? 'hostname' : toString(options.hostnameKey, { key: 'hostnameKey', nonEmpty: true })
+    const portKey = options.portKey == undefined ? 'port' : toString(options.portKey, { key: 'portKey', nonEmpty: true })
 
     this._callbacks[key] = (value) => {
-      const { hostname, port }  = OptionParser.toHost(key, value, { userInput: this._userInput })
+      const { hostname, port }  = toHost(value, { key, userInput: this._userInput })
       this._object[hostnameKey] = hostname
       if (port != null) {
         this._object[portKey] = port
@@ -741,22 +757,13 @@ class OptionParser extends EventEmitter {
     return this
   }
 
-  /** Defines a key that takes an integer value,
-    * optionally clamped between min and max.
-    *
-    * @param {!string} key - The key.
-    * @param {?Class} Class - Check for instance of Class.
-    * @return {OptionParser} this - For chaining.
-    * @throws {TypeError} When key is not a string.
-    * @throws {RangeError} When key is empty string.
-    * @throws {SyntaxError} On duplicate key.
-    */
-  instanceKey (key: string, Class?: unknown): OptionParser {
+  /** Defines a key that takes an instance value */
+  instanceKey (key: string, Class?: unknown): this {
     key = this.#toKey(key)
-    const C = Class === undefined ? undefined : OptionParser.toClass('Class', Class)
+    const C = Class === undefined ? undefined : toClass(Class, { key: 'Class' })
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toInstance(key, value, { Class: C })
+      this._object[key] = toInstance(value, { key, Class: C })
     }
     return this
   }
@@ -772,16 +779,16 @@ class OptionParser extends EventEmitter {
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  intKey (key: string, min?: integer, max?: integer): OptionParser {
+  intKey (key: string, min?: integer, max?: integer): this {
     key = this.#toKey(key)
-    min = min == null ? Number.MIN_SAFE_INTEGER : OptionParser.toInt('min', min)
-    max = max == null ? Number.MAX_SAFE_INTEGER : OptionParser.toInt('max', max)
+    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'min' })
+    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'max' })
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
 
     this._callbacks[key] = (value) => {
-      this._object[key] = OptionParser.toInt(key, value, { min, max, userInput: this._userInput })
+      this._object[key] = toInt(value, { key, min, max, userInput: this._userInput })
     }
     return this
   }
@@ -789,22 +796,22 @@ class OptionParser extends EventEmitter {
   /** Defines a key that takes a list of strings as value.
     *
     * @param {!string} key - The key.
-    * @return {OptionParser} this - For chaining.
+    * @return {this} this - For chaining.
     * @throws {TypeError} When key is not a string.
     * @throws {RangeError} When key is empty string.
     * @throws {SyntaxError} On duplicate key.
     */
-  listKey (key: string): OptionParser {
+  listKey (key: string): this {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value) => {
       const array = []
       const map: { [key: string]: boolean } = {}
-      for (const element of OptionParser.toArray(key, value)) {
+      for (const element of toArray(value, { key, userInput: this._userInput })) {
         try {
-          const e = OptionParser.toString(`${key}.${element}`, element, { nonEmpty: true, userInput: this._userInput })
+          const e = toString(element, { key: `${key}.${element}`, nonEmpty: true, userInput: this._userInput })
           if (map[e]) {
-            throw newSyntaxError(`${key}.${element}: duplicate key`, this._userInput)
+            throw newSyntaxError(`${key}.${element}: duplicate key`, { userInput: this._userInput })
           }
           map[e] = true
           array.push(e)
@@ -834,14 +841,14 @@ class OptionParser extends EventEmitter {
     */
   numberKey (key: string, min?: number, max?: number): OptionParser {
     key = this.#toKey(key)
-    min = min == null ? -Infinity : OptionParser.toNumber('min', min)
-    max = max == null ? Infinity : OptionParser.toNumber('max', max)
+    min = min == null ? -Infinity : toNumber(min, { key: 'min' })
+    max = max == null ? Infinity : toNumber(max, { key: 'max' })
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
 
     this._callbacks[key] = (value: unknown) => {
-      this._object[key] = OptionParser.toNumber(key, value, { min, max, userInput: this._userInput })
+      this._object[key] = toNumber(value, { key, min, max, userInput: this._userInput })
     }
     return this
   }
@@ -858,7 +865,7 @@ class OptionParser extends EventEmitter {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
-      this._object[key] = OptionParser.toObject(key, value, { userInput: this._userInput })
+      this._object[key] = toObject(value, { key, userInput: this._userInput })
     }
     return this
   }
@@ -875,7 +882,7 @@ class OptionParser extends EventEmitter {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
-      this._object[key] = OptionParser.toPath(key, value, { userInput: this._userInput })
+      this._object[key] = toPath(value, { key, userInput: this._userInput })
     }
     return this
   }
@@ -893,9 +900,7 @@ class OptionParser extends EventEmitter {
     key = this.#toKey(key)
 
     this._callbacks[key] = (value: unknown) => {
-      this._object[key] = OptionParser.toString(
-        key, value, { nonEmpty, userInput: this._userInput }
-      )
+      this._object[key] = toString(value, { key, nonEmpty, userInput: this._userInput })
     }
     return this
   }
@@ -903,20 +908,18 @@ class OptionParser extends EventEmitter {
   /** Parse options.
     *
     * @param options - The input options.
-    * @returns The parsed options.
+    * @return The parsed options.
     * @throws {TypeError} When option has wrong type.
     * @throws {RangeError} When option has wrong value.
     * @throws {SyntaxError} Unknown option.
     * @throws {UserInputError} On error, when value was input by user.
     */
-  parse (options?: map): map {
-    options = OptionParser.toObject('options', options)
-
+  parse (options?: map<unknown>): map<unknown> {
     for (const key in options) {
       try {
         const value = options[key]
         if (this._callbacks[key] == null) {
-          throw newSyntaxError(`${key}: invalid key`, this._userInput)
+          throw newSyntaxError('invalid key', { key, userInput: this._userInput })
         }
         this._callbacks[key](value)
       } catch (error) {
@@ -933,5 +936,4 @@ class OptionParser extends EventEmitter {
   }
 }
 
-export type { hostname, Host, host, path }
 export { OptionParser }
