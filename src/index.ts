@@ -27,25 +27,25 @@
   * npm install -g hb-lib-tools
   * ```
   *
-  * ### Utility Classes
-  * This library provides a number of utility classes for Homebridge plugins and/or command-line tools.
+  * ### Utility Modules
+  * This library provides a number of utility modules for Homebridge plugins and/or command-line tools.
 
-  * Class                       | Description
-  * --------------------------- | -----------
-  * {@link Colour!}             | Colour conversions.
-  * {@link CommandLineParser!}  | Parser and validator for command-line arguments.
-  * {@link CommandLineTool!}    | Abstract base class for a command-line tool.
-  * {@link HttpClient!}         | HTTP client.
-  * {@link JsonFormatter!}      | JSON formatter.
-  * {@link MdnsClient!}         | Multicast DNS (Bonjour) client.
-  * {@link OptionParser!}       | Parser and validator for options and other parameters.
-  * {@link SystemInfo!}         | System information.
-  * {@link UpnpClient!}         | Universal Plug and Play client.
+  * Module                     | Description
+  * -------------------------- | -----------
+  * {@link Colour}             | Colour conversions.
+  * {@link CommandLineParser}  | Parser and validator for command-line arguments.
+  * {@link CommandLineTool}    | Abstract base class for a command-line tool.
+  * {@link HttpClient}         | HTTP client.
+  * {@link JsonFormatter}      | JSON formatter.
+  * {@link MdnsClient}         | Multicast DNS (Bonjour) client.
+  * {@link OptionParser}       | Parser and validator for options and other parameters.
+  * {@link SystemInfo}         | System information.
+  * {@link UpnpClient}         | Universal Plug and Play client.
   *
-  * Each utility class is provided as a separate import, to enable lazy loading.
+  * Each utility module is provided as a separate import, to enable lazy loading.
   * E.g. to use the `HttpClient` class, issue:
   * ```typescript
-  * import { HttpClient} from 'hb-lib-tools/HttpClient'
+  * import { HttpClient } from 'hb-lib-tools/HttpClient'
   * ```
   * or, to load it lazily:
   * ```typescript
@@ -94,7 +94,9 @@ import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
+import * as o from 'hb-lib-tools/OptionParser'
+
+const { toInt, toIntString } = o.OptionParser
 
 /** Logger interface.
   */
@@ -151,7 +153,7 @@ function isNodejsError (e: SystemError) {
   * Translate system errors into more readable messages.
   * @param error - The error.
   * @param useChalk - Use chalk to grey out the stack trace.
-  * @returns The error as string.
+  * @return The error as string.
   */
 export function formatError (error: Error, useChalk = false) {
   if (isJavaScriptError(error) || isNodejsError(error)) {
@@ -199,7 +201,7 @@ export function formatError (error: Error, useChalk = false) {
   * This is the version used to develop and test the software,
   * typically the latest LTS version.
   * @param packageJson - The contents of `package.json`.
-  * @returns The recommended version of NodeJS.
+  * @return The recommended version of NodeJS.
   */
 export function recommendedNodeVersion (packageJson: jsonMap) {
   const engines = packageJson.engines as jsonMap
@@ -221,7 +223,7 @@ export function recommendedNodeVersion (packageJson: jsonMap) {
   * @throws `RangeError` On invalid parameter value.
   */
 export async function timeout (msec: integer): Promise<void> {
-  msec = OptionParser.toInt('msec', msec, { min: 0 })
+  msec = toInt('msec', msec, { min: 0 })
   return new Promise((resolve: () => void) => {
     setTimeout(() => {
       resolve()
@@ -234,7 +236,7 @@ export async function timeout (msec: integer): Promise<void> {
   * @param options - Options.
   * @param options.length - The (minimum) number of digits in the hex string.
   * The hex string is left padded with `0`s, to reach the length.
-  * @returns The hex string.
+  * @return The hex string.
   * @throws `TypeError` On invalid parameter type.
   * @throws `RangeError` On invalid parameter value.
   */
@@ -242,6 +244,6 @@ export function toHexString (value: integer | Buffer, options: { length?: intege
   if (Buffer.isBuffer(value)) {
     return value.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
   }
-  const length = options.length == null ? 0 : OptionParser.toInt('length', options.length, { min: 0, max: 32 })
-  return OptionParser.toIntString('value', value, { radix: 16, length })
+  const length = options.length == null ? 0 : toInt('length', options.length, { min: 0, max: 32 })
+  return toIntString('value', value, { radix: 16, length })
 }
