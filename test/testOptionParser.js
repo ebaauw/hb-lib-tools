@@ -28,7 +28,7 @@ let TestParams /* eslint-disable-line */
 
 /** Format a test value.
   * @param {*} value - The test value.
-  * @Returns {string} - A representation of the test value.
+  * @return {string} - A representation of the test value.
   */
 function fmt (value) {
   let format = '%j'
