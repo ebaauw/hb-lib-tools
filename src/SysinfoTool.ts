@@ -11,11 +11,9 @@
 import type { jsonMap, map } from 'hb-lib-tools'
 
 import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, b } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { SystemInfo } from 'hb-lib-tools/SystemInfo'
-
-const { b } = CommandLineTool
 
 const usage = `${b('sysinfo')} [${b('-hVDj')}]`
 const help = `System information tool.
@@ -42,7 +40,7 @@ class SysinfoTool extends CommandLineTool {
   pkgJson: jsonMap
   systemInfo: SystemInfo | null = null
   json = false
-  options: map
+  options: map<unknown> = {}
 
   constructor (pkgJson: jsonMap) {
     super()
