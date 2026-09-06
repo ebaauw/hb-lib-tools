@@ -16,9 +16,7 @@
 
 import type { integer } from 'hb-lib-tools'
 import { toHexString } from 'hb-lib-tools'
-import { OptionParser } from 'hb-lib-tools/OptionParser'
-
-const { toInt, toNumber } = OptionParser
+import { toInt, toNumber } from 'hb-lib-tools/OptionParser'
 
 type point = {
   x: number,
@@ -40,7 +38,7 @@ export type xy = [number, number]
   * @throws On invalid input values.
   */
 export function xy (x: number, y: number): xy {
-  return [toNumber('x', x, { min: 0, max: 1 }), toNumber('y', y, { min: 0, max: 1 })]
+  return [toNumber(x, { key: 'x', min: 0, max: 1 }), toNumber(y, { key: 'y', min: 0, max: 1 })]
 }
 
 function pointToXy (p: point): xy { return [p.x, p.y] }
@@ -100,9 +98,9 @@ export type hsv = {
   */
 export function hsv (h: integer, s: integer, v: integer = 100): hsv {
   return {
-    h: toInt('h', h, { min: 0, max: 360 }),
-    s: toInt('s', s, { min: 0, max: 100 }),
-    v: toInt('v', v, { min: 0, max: 100 })
+    h: toInt(h, { key: 'h', min: 0, max: 360 }),
+    s: toInt(s, { key: 's', min: 0, max: 100 }),
+    v: toInt(v, { key: 'v', min: 0, max: 100 })
   }
 }
 
@@ -129,9 +127,9 @@ export type rgb = {
   */
 export function rgb (r: number, g: number, b: number): rgb {
   return {
-    r: toNumber('b', r, { min: 0, max: 1 }),
-    g: toNumber('g', g, { min: 0, max: 1 }),
-    b: toNumber('r', b, { min: 0, max: 1 })
+    r: toNumber(r, { key: 'r', min: 0, max: 1 }),
+    g: toNumber(g, { key: 'g', min: 0, max: 1 }),
+    b: toNumber(b, { key: 'b', min: 0, max: 1 })
   }
 }
 
@@ -152,9 +150,9 @@ export function rgbStringToRgb (s: rgbString): rgb {
   if (a == null || a[1] == null || a[2] == null || a[3] == null) {
     throw new TypeError('not a valid RGB colour string')
   }
-  const r = toInt('r', '0x' + a[1]) / 0xFF
-  const g = toInt('g', '0x' + a[2]) / 0xFF
-  const b = toInt('b', '0x' + a[3]) / 0xFF
+  const r = toInt('0x' + a[1], { key: 'r' }) / 0xFF
+  const g = toInt('0x' + a[2], { key: 'g' }) / 0xFF
+  const b = toInt('0x' + a[3], { key: 'b' }) / 0xFF
   return rgb(r, g, b)
 }
 
