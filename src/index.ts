@@ -85,8 +85,7 @@
   */
 
 export type integer = number & {}
-export type map = { [key: string]: unknown }
-export type stringMap = { [key: string]: string }
+export type map<T> = { [key: string]: T }
 export type json = null | boolean | number | string | json[] | jsonMap
 export type jsonMap = { [key: string]: json }
 
@@ -94,25 +93,28 @@ import { isIPv6 } from 'node:net'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
-import * as o from 'hb-lib-tools/OptionParser'
-
-const { toInt, toIntString } = o.OptionParser
+import { toInt, toIntString} from 'hb-lib-tools/OptionParser'
 
 /** Logger interface.
+  * 
+  * This interface defines a number of methods for logging messages of various severities.
+  * Each of these methods uses `printf`-style arguments.
+  * In case the last (or only) argument is an `Error`,
+  * {@link formatError formatError()} is called to convert it to a string.
   */
 export interface Logger {
-  /** Log message. */
-  log: (format: string | Error, ...args: unknown[]) => void,
   /** Log error message. */
-  error: (format: string | Error, ...args: unknown[]) => void,
+  error (format: string | Error, ...args: unknown[]): void,
   /** Log warning message. */
-  warn: (format: string | Error, ...args: unknown[]) => void,
+  warn (format: string | Error, ...args: unknown[]): void,
+  /** Log regular log message. */
+  log (format: string | Error, ...args: unknown[]): void,
   /** Log debug message. */
-  debug: (format: string | Error, ...args: unknown[]) => void,
+  debug (format: string | Error, ...args: unknown[]): void,
   /** Log verbose debug message. */
-  vdebug: (format: string | Error, ...args: unknown[]) => void,
+  vdebug (format: string | Error, ...args: unknown[]): void,
   /** Log very verbose debug message. */
-  vvdebug: (format: string | Error, ...args: unknown[]) => void
+  vvdebug (format: string | Error, ...args: unknown[]): void,
 }
 
 interface SystemError extends Error {
@@ -218,12 +220,13 @@ export function recommendedNodeVersion (packageJson: jsonMap) {
   *   await timeout(1500)
   * ```
   *
-  * @param msec - Time (in msec) to wait.
-  * @throws `TypeError` On invalid parameter type.
-  * @throws `RangeError` On invalid parameter value.
+  * @throws On invalid parameters.
   */
-export async function timeout (msec: integer): Promise<void> {
-  msec = toInt('msec', msec, { min: 0 })
+export async function timeout (
+  /** Time (in msec) to wait. */
+  msec: integer
+): Promise<void> {
+  msec = toInt(msec, { key: 'msec', min: 0 })
   return new Promise((resolve: () => void) => {
     setTimeout(() => {
       resolve()
@@ -232,18 +235,20 @@ export async function timeout (msec: integer): Promise<void> {
 }
 
 /** Convert integer or Buffer to hex string.
-  * @param value - The integer or Buffer to convert to a hex string.
-  * @param options - Options.
-  * @param options.length - The (minimum) number of digits in the hex string.
-  * The hex string is left padded with `0`s, to reach the length.
   * @return The hex string.
-  * @throws `TypeError` On invalid parameter type.
-  * @throws `RangeError` On invalid parameter value.
+  * @throws On invalid parameters.
   */
-export function toHexString (value: integer | Buffer, options: { length?: integer } = {}): string {
+export function toHexString (
+  /** The integer or Buffer to convert to a hex string. */
+  value: integer | Buffer,
+  /** Options. */
+  options: {
+    /** The (minimum) number of digits in the hex string. */
+    length?: integer
+  } = {}): string {
   if (Buffer.isBuffer(value)) {
     return value.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
   }
-  const length = options.length == null ? 0 : toInt('length', options.length, { min: 0, max: 32 })
-  return toIntString('value', value, { radix: 16, length })
+  const length = options.length == null ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
+  return toIntString(value, { key: 'value', radix: 16, length })
 }
