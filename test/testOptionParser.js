@@ -8,7 +8,12 @@
 import assert from 'node:assert'
 import util from 'node:util'
 
-import { toBool, OptionParser, UserInputError } from 'hb-lib-tools/OptionParser'
+import {
+  toBool, toInt, toIntString, toNumber, toNumberString,
+  toString, toHost, toHostString,
+  toArray, toObject, toClass, toFunction, toInstance,
+  UserInputError
+} from 'hb-lib-tools/OptionParser'
 
 // ===== TEST SETUP ============================================================
 
@@ -77,18 +82,19 @@ function format (t, msg, ...args) {
   * @param {!TestParams[]} tests - The parameters for the tests to run.
   */
 function test (f, tests) {
+  const key = 'key'
   tests.forEach((t) => {
     if (t.r !== undefined) {
       it(format(t, 'should return %s', fmt(t.r)), () =>{
-        assert.strictEqual(f('key', t.v, t.p), t.r)
+        assert.strictEqual(f(t.v, { key, ...t.p }), t.r)
       })
     } else if (t.s !== undefined) {
       it(format(t, 'should return %s', fmt(t.s)), () => {
-        assert.deepStrictEqual(f('key', t.v, t.p), t.s)
+        assert.deepStrictEqual(f(t.v, { key, ...t.p }), t.s)
       })
     } else if (t.e != null) {
       it(format(t, 'should throw %s \'%s\'', t.e.name, t.e.message), () => {
-        assert.throws(() => { f('key', t.v, t.p) }, t.e)
+        assert.throws(() => { f(t.v, { key, ...t.p }) }, t.e)
       })
     }
   })
@@ -165,12 +171,12 @@ describe('OptionParser', () => {
       { v: 'on', r: true },
 
       // Parameter checking.
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toInt()', () => {
-    test(OptionParser.toInt, [
+    test(toInt, [
       // Standard values.
       { e: new TypeError('key: missing integer value') },
       { p: { userInput: true }, e: new UserInputError('key: missing integer value') },
@@ -238,22 +244,22 @@ describe('OptionParser', () => {
       { v: int, p: { min: 0, max: 40 }, r: 40 },
 
       // Parameter checking.
-      { v: int, p: { min: null }, e: new TypeError('min: missing integer value') },
-      { v: int, p: { min: null, userInput: true }, e: new TypeError('min: missing integer value') },
-      { v: int, p: { min: '' }, e: new TypeError('min: not an integer') },
-      { v: int, p: { min: '', userInput: true }, e: new TypeError('min: not an integer') },
-      { v: int, p: { max: null }, e: new TypeError('max: missing integer value') },
-      { v: int, p: { max: null, userInput: true }, e: new TypeError('max: missing integer value') },
-      { v: int, p: { max: '' }, e: new TypeError('max: not an integer') },
-      { v: int, p: { max: '', userInput: true }, e: new TypeError('max: not an integer') },
-      { v: int, p: { min: 1, max: 0 }, e: new RangeError('max: smaller than min') },
-      { v: int, p: { min: 1, max: 0, userInput: true }, e: new RangeError('max: smaller than min') },
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: int, p: { min: null }, e: new TypeError('options.min: missing integer value') },
+      { v: int, p: { min: null, userInput: true }, e: new TypeError('options.min: missing integer value') },
+      { v: int, p: { min: '' }, e: new TypeError('options.min: not an integer') },
+      { v: int, p: { min: '', userInput: true }, e: new TypeError('options.min: not an integer') },
+      { v: int, p: { max: null }, e: new TypeError('options.max: missing integer value') },
+      { v: int, p: { max: null, userInput: true }, e: new TypeError('options.max: missing integer value') },
+      { v: int, p: { max: '' }, e: new TypeError('options.max: not an integer') },
+      { v: int, p: { max: '', userInput: true }, e: new TypeError('options.max: not an integer') },
+      { v: int, p: { min: 1, max: 0 }, e: new RangeError('options.max: smaller than options.min') },
+      { v: int, p: { min: 1, max: 0, userInput: true }, e: new RangeError('options.max: smaller than options.min') },
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toNumber()', () => {
-    test(OptionParser.toNumber, [
+    test(toNumber, [
       // Standard values.
       { e: new TypeError('key: missing number value') },
       { p: { userInput: true }, e: new UserInputError('key: missing number value') },
@@ -322,22 +328,22 @@ describe('OptionParser', () => {
       { v: int, p: { min: 0, max: 40 }, r: 40 },
 
       // Parameter checking.
-      { v: int, p: { min: null }, e: new TypeError('min: missing number value') },
-      { v: int, p: { min: null, userInput: true }, e: new TypeError('min: missing number value') },
-      { v: int, p: { min: '' }, e: new TypeError('min: not a number') },
-      { v: int, p: { min: '', userInput: true }, e: new TypeError('min: not a number') },
-      { v: int, p: { max: null }, e: new TypeError('max: missing number value') },
-      { v: int, p: { max: null, userInput: true }, e: new TypeError('max: missing number value') },
-      { v: int, p: { max: '' }, e: new TypeError('max: not a number') },
-      { v: int, p: { max: '', userInput: true }, e: new TypeError('max: not a number') },
-      { v: int, p: { min: 1, max: 0 }, e: new RangeError('max: smaller than min') },
-      { v: int, p: { min: 1, max: 0, userInput: true }, e: new RangeError('max: smaller than min') },
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: int, p: { min: null }, e: new TypeError('options.min: missing number value') },
+      { v: int, p: { min: null, userInput: true }, e: new TypeError('options.min: missing number value') },
+      { v: int, p: { min: '' }, e: new TypeError('options.min: not a number') },
+      { v: int, p: { min: '', userInput: true }, e: new TypeError('options.min: not a number') },
+      { v: int, p: { max: null }, e: new TypeError('options.max: missing number value') },
+      { v: int, p: { max: null, userInput: true }, e: new TypeError('options.max: missing number value') },
+      { v: int, p: { max: '' }, e: new TypeError('options.max: not a number') },
+      { v: int, p: { max: '', userInput: true }, e: new TypeError('options.max: not a number') },
+      { v: int, p: { min: 1, max: 0 }, e: new RangeError('options.max: smaller than options.min') },
+      { v: int, p: { min: 1, max: 0, userInput: true }, e: new RangeError('options.max: smaller than options.min') },
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toString()', () => {
-    test(OptionParser.toString, [
+    test(toString, [
       // Standard values.
       { r: '' },
       { v: null, r: '' },
@@ -368,14 +374,14 @@ describe('OptionParser', () => {
       { v: '', p: { nonEmpty: true, userInput: true }, e: new UserInputError('key: not a non-empty string') },
 
       // Parameter checking.
-      { v: bool, p: { nonEmpty: null }, e: new TypeError('nonEmpty: missing boolean value') },
-      { v: bool, p: { nonEmpty: '' }, e: new TypeError('nonEmpty: not a boolean') },
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: bool, p: { nonEmpty: null }, e: new TypeError('options.nonEmpty: missing boolean value') },
+      { v: bool, p: { nonEmpty: '' }, e: new TypeError('options.nonEmpty: not a boolean') },
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toArray()', () => {
-    test(OptionParser.toArray, [
+    test(toArray, [
       // Standard values.
       { s: [] },
       { v: null, s: [] },
@@ -397,12 +403,12 @@ describe('OptionParser', () => {
       { v: A, p: { userInput: true }, e: new UserInputError('key: not an array') },
 
       // Parameter checking.
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toObject()', () => {
-    test(OptionParser.toObject, [
+    test(toObject, [
       // Standard values.
       { s: {} },
       { v: null, s: {} },
@@ -429,12 +435,12 @@ describe('OptionParser', () => {
       { v: A, p: { userInput: true }, e: new UserInputError('key: not an object') },
 
       // Parameter checking.
-      { v: bool, p: { userInput: null }, e: new TypeError('userInput: missing boolean value') },
-      { v: bool, p: { userInput: '' }, e: new TypeError('userInput: not a boolean') }
+      { v: bool, p: { userInput: null }, e: new TypeError('options.userInput: missing boolean value') },
+      { v: bool, p: { userInput: '' }, e: new TypeError('options.userInput: not a boolean') }
     ])
   })
   describe('.toFunction()', () =>{
-    test(OptionParser.toFunction, [
+    test(toFunction, [
       // Standard values.
       { e: new TypeError('key: missing function value') },
       { v: null, e: new TypeError('key: missing function value') },
@@ -452,8 +458,7 @@ describe('OptionParser', () => {
     ])
   })
   describe('.toClass()', () => {
-    // toString(key, value, SuperClass)
-    test(OptionParser.toClass, [
+    test(toClass, [
       // Standard values.
       { e: new TypeError('key: missing class value') },
       { v: null, e: new TypeError('key: missing class value') },
@@ -481,12 +486,12 @@ describe('OptionParser', () => {
       { v: C, p: { SuperClass: C }, s: C },
 
       // Parameter checking.
-      { v: A, p: { SuperClass: null }, e: new TypeError('SuperClass: missing class value') },
-      { v: A, p: { SuperClass: '' }, e: new TypeError('SuperClass: not a class') }
+      { v: A, p: { SuperClass: null }, e: new TypeError('options.SuperClass: missing class value') },
+      { v: A, p: { SuperClass: '' }, e: new TypeError('options.SuperClass: not a class') }
     ])
   })
   describe('.toInstance()', () => {
-    test(OptionParser.toInstance, [
+    test(toInstance, [
       // Standard values.
       { p: { Class: A }, e: new TypeError('key: missing instance of A value') },
       { v: null, p: { Class: A }, e: new TypeError('key: missing instance of A value') },
@@ -514,13 +519,12 @@ describe('OptionParser', () => {
       { v: c, p: { Class: C }, s: c },
       
       // Parameter checking.
-      { v: A, p: { Class: null }, e: new TypeError('Class: missing class value') },
-      { v: A, p: { Class: '' }, e: new TypeError('Class: not a class') }
+      { v: A, p: { Class: null }, e: new TypeError('options.Class: missing class value') },
+      { v: A, p: { Class: '' }, e: new TypeError('options.Class: not a class') }
     ])
   })
   describe('.toIntString()', () => {
-    // toIntString(value, radix, length)
-    test(OptionParser.toIntString, [
+    test(toIntString, [
       { v: 255, r: '255' },
       { v: 255, p: { length: 4 }, r: ' 255' },
       { v: 255, p: { length: 8 }, r: '     255' },
@@ -537,8 +541,7 @@ describe('OptionParser', () => {
     ])
   })
   describe('.toNumberString()', () => {
-    // toNumberString(value, length, decimals)
-    test(OptionParser.toNumberString, [
+    test(toNumberString, [
       { v: Math.PI, r: '' + Math.PI },
       { v: Math.PI, p: { length: 8, decimals: 2 }, r: '    3.14' },
       { v: Math.PI, p: { length: 8, decimals: 4 }, r: '  3.1416' },
@@ -550,7 +553,7 @@ describe('OptionParser', () => {
     ])
   })
   describe('.toHost()', () => {
-    test(OptionParser.toHost, [
+    test(toHost, [
       { v: 'localhost', s: { hostname: 'localhost' } },
       { v: 'localhost:80', s: { hostname: 'localhost', port: 80 } },
       { v: '127.0.0.1', s: { hostname: '127.0.0.1' } },
@@ -570,7 +573,7 @@ describe('OptionParser', () => {
     ])
   })
   describe('.toHostString()', () => {
-    test(OptionParser.toHostString, [
+    test(toHostString, [
       { v: 'localhost', s: 'localhost' },
       { v: 'localhost:80', s: 'localhost:80' },
       { v: '127.0.0.1', s: '127.0.0.1' },
