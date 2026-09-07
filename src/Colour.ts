@@ -37,7 +37,7 @@ export type xy = [number, number]
   * @return The corresponding {@link xy} coordinates.
   * @throws On invalid input values.
   */
-export function xy (x: number, y: number): xy {
+export function toXy (x: number, y: number): xy {
   return [toNumber(x, { key: 'x', min: 0, max: 1 }), toNumber(y, { key: 'y', min: 0, max: 1 })]
 }
 
@@ -63,14 +63,14 @@ export type gamut = {
   * @param r - Coordinates for red.
   * @param g - Coordinates for green.
   * @param b - Coordinates for blue.
-  * @returns The corresponding {@link Colour!gamut gamut}.
+  * @return The corresponding {@link Colour!gamut gamut}.
   * @throws On invalid input values.
   */
-function gamut (r: xy, g: xy, b: xy): gamut {
+function toGamut (r: xy, g: xy, b: xy): gamut {
   return {
-    r: xy(r[0], r[1]),
-    g: xy(g[0], g[1]),
-    b: xy(b[0], b[1])
+    r: toXy(r[0], r[1]),
+    g: toXy(g[0], g[1]),
+    b: toXy(b[0], b[1])
   }
 }
 
@@ -96,7 +96,7 @@ export type hsv = {
   * @return The corresponding {@link Colour!hsv hsv} value.
   * @throws On invalid input values.
   */
-export function hsv (h: integer, s: integer, v: integer = 100): hsv {
+export function toHsv (h: integer, s: integer, v: integer = 100): hsv {
   return {
     h: toInt(h, { key: 'h', min: 0, max: 360 }),
     s: toInt(s, { key: 's', min: 0, max: 100 }),
@@ -125,7 +125,7 @@ export type rgb = {
   * @return The corresponding {@link Colour!rgb rgb} value.
   * @throws On invalid input values.
   */
-export function rgb (r: number, g: number, b: number): rgb {
+export function toRgb (r: number, g: number, b: number): rgb {
   return {
     r: toNumber(r, { key: 'r', min: 0, max: 1 }),
     g: toNumber(g, { key: 'g', min: 0, max: 1 }),
@@ -138,7 +138,7 @@ export function rgb (r: number, g: number, b: number): rgb {
  */
 export type rgbString = string & {}
 
-const rgbStringPattern = /^\#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/
+const rgbStringPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/
 
 /** Convert {@link Colour!rgbString rgbString} to {@link rgb}.
   * @param s - The RGB colour as string.
@@ -153,7 +153,7 @@ export function rgbStringToRgb (s: rgbString): rgb {
   const r = toInt('0x' + a[1], { key: 'r' }) / 0xFF
   const g = toInt('0x' + a[2], { key: 'g' }) / 0xFF
   const b = toInt('0x' + a[3], { key: 'b' }) / 0xFF
-  return rgb(r, g, b)
+  return toRgb(r, g, b)
 }
 
 /** Convert {@link Colour!rgb rgb} to {@link rgbString}. */
@@ -170,24 +170,24 @@ export function rgbToRgbString (rgb: rgb): rgbString {
   * - A potential division by zero error for `CurrentY`, when translating the
   *   {@link xy} values back to {@link hsv}.
   */
-export const defaultGamut = gamut(
+export const defaultGamut = toGamut(
   [0.9961, 0.0001],
   [0, 0.9961],
   [0, 0.0001]
 )
 
 const gamutPhilips = {
-  A: gamut(
+  A: toGamut(
     [0.7040, 0.2960],
     [0.2151, 0.7106],
     [0.1380, 0.0800]
   ),
-  B: gamut (
+  B: toGamut (
     [0.6750, 0.3220],
     [0.4090, 0.5180],
     [0.1670, 0.0400]
   ),
-  C: gamut (
+  C: toGamut (
     [0.6920, 0.3080],
     [0.1700, 0.7000],
     [0.1530, 0.0480]
@@ -196,32 +196,32 @@ const gamutPhilips = {
 
 /** Colour gamuts used by different manufacturers. */
 export const gamutByManufacturer = {
-  GLEDOPTO: gamut(
+  GLEDOPTO: toGamut(
     [0.7006, 0.2993],
     [0.1387, 0.8148],
     [0.1510, 0.0227]
   ),
-  'IKEA of Sweden': gamut(
+  'IKEA of Sweden': toGamut(
     [0.68, 0.31],
     [0.11, 0.82],
     [0.13, 0.04]
   ),
-  innr: gamut(
+  innr: toGamut(
     [0.8817, 0.1033],
     [0.2204, 0.7758],
     [0.0551, 0.1940]
   ),
-  LEDVANCE: gamut(
+  LEDVANCE: toGamut(
     [0.6972, 0.3027],
     [0.1737, 0.6991],
     [0.1227, 0.0959]
   ),
-  MLI: gamut(
+  MLI: toGamut(
     [0.68, 0.31],
     [0.11, 0.82],
     [0.13, 0.04]
   ),
-  OSRAM: gamut(
+  OSRAM: toGamut(
     [0.6850, 0.3149],
     [0.1780, 0.7253],
     [0.1241, 0.0578]
@@ -310,7 +310,7 @@ export function hsvToRgb (hsv: hsv): rgb {
     case 4: r = x + m; g = m; b = C + m; break
     case 5: r = C + m; g = m; b = x + m; break
   }
-  return { r, g, b }
+  return toRgb(r, g, b)
 }
 
 /**
@@ -346,11 +346,7 @@ export function rgbToHsv (rgb: rgb): hsv {
       H += 4.0
       break
   }
-  return {
-    h: Math.round(H * 60.0),
-    s: Math.round(S * 100.0),
-    v: Math.round(M * 100.0)
-  }
+  return toHsv(Math.round(H * 60.0), Math.round(S * 100.0), Math.round(M * 100.0))
 }
 
 /**
@@ -436,7 +432,7 @@ export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
   g = compand(g)
   b = compand(b)
   rescale()
-  return rgbToHsv({ r, g, b })
+  return rgbToHsv(toRgb(r, g, b))
 }
 
 /**
@@ -482,6 +478,5 @@ export function ctToXy (ct: integer): xy {
   y *= 4
   x /= 0xFFFF
   y /= 0xFFFF
-
-  return [Math.round(x * 10000) / 10000, Math.round(y * 10000) / 10000]
+  return toXy(Math.round(x * 10000) / 10000, Math.round(y * 10000) / 10000)
 }
