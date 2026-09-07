@@ -33,7 +33,6 @@
   * Module                     | Description
   * -------------------------- | -----------
   * {@link Colour}             | Colour conversions.
-  * {@link CommandLineParser}  | Parser and validator for command-line arguments.
   * {@link CommandLineTool}    | Abstract base class for a command-line tool.
   * {@link HttpClient}         | HTTP client.
   * {@link JsonFormatter}      | JSON formatter.
