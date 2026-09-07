@@ -12,14 +12,17 @@
 
 import type { integer, json, jsonMap } from 'hb-lib-tools'
 
+import { createRequire } from 'node:module'
+
 import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { unzip } from 'node:zlib'
 
-import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt, toPath } from 'hb-lib-tools/OptionParser'
+
+const require = createRequire(import.meta.url)
 
 const gunzip = promisify(unzip)
 
@@ -85,6 +88,7 @@ Parameters:
 
 /** @ignore */
 class JsonTool extends CommandLineTool {
+  protected _packageJson: jsonMap
   private options: {
     sortKeys: boolean,
     noWhiteSpace: boolean,
@@ -98,15 +102,15 @@ class JsonTool extends CommandLineTool {
     keysOnly: boolean,
     valuesOnly: boolean
   }
-  private pkgJson
   private stringList: string[]
   private fileList: string[]
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
   /** @hidden */
-  constructor (pkgJson?: jsonMap) {
+  constructor (packageJson?: jsonMap) {
     super()
+    this._packageJson = packageJson ?? require('../package.json')
     this.usage = usage
     this.options = {
       sortKeys: false,
@@ -120,16 +124,15 @@ class JsonTool extends CommandLineTool {
       keysOnly: false,
       valuesOnly: false
     }
-    this.pkgJson = pkgJson
     this.stringList = []
     this.fileList = []
   }
 
   parseArguments (): void {
-    const parser = new CommandLineParser(this, this.pkgJson)
+    const parser = new CommandLineParser(this)
     parser
-      .help('h', 'help', help)
-      .version('V', 'version')
+      .helpFlag('h', 'help', help)
+      .versionFlag('V', 'version')
       .flag('s', 'sortKeys', () => { this.options.sortKeys = true })
       .flag('n', 'noWhiteSpace', () => { this.options.noWhiteSpace = true })
       .flag('j', 'jsonArray', () => { this.options.jsonArray = true })
