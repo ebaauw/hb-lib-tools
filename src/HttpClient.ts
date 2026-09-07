@@ -3,242 +3,235 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, integer, map } from 'hb-lib-tools'
+import type { Logger, integer, jsonMap, map } from 'hb-lib-tools'
+import type { host, path } from 'hb-lib-tools/OptionParser'
 
 import { EventEmitter, once } from 'node:events'
 import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
 import https from 'node:https'
-import { TLSSocket } from 'tls'
+import { PeerCertificate, TLSSocket } from 'tls'
 
-import { toArray, toHost, toObject, toPath, toString, OptionParser } from 'hb-lib-tools/OptionParser'
+import { toArray, toHost, toInt, toObject, toPath, toString } from 'hb-lib-tools/OptionParser'
 
-export class HttpError extends Error {
+/** HTTP request information. */
+export type HttpRequest = {
+  /** Name of the HTTP server. */
+  name: string,
+  /** Request ID. */
+  id: integer,
+  /** Request method. */
+  method: string,
+  /** Request resource. */
+  resource: string,
+  /** Request headers. */
+  headers: OutgoingHttpHeaders,
+  /** Request body. */
+  body?: unknown,
+  /** Request body as JSON string. */
+  jsonBody?: string,
+  /** Request action (for SOAP requests). */
+  action?: string,
+  /** Request URL. */
+  url: string
+}
+
+/** HTTP response information. */
+export type HttpResponse = {
+  /** Information about the corresponding HTTP request. */
   request: HttpRequest
+  /** The HTTP status code. */
   statusCode?: integer
+  /** The HTTP status message. */
   statusMessage?: string
+  /** The HTTP response headers. */
+  headers?: IncomingHttpHeaders
+  /** The HTTP response body. */
+  body?: unknown
+  /** The raw HTTP response body. */
+  rawBody?: unknown
+}
 
-  constructor (message: string, request: HttpRequest, statusCode?: integer, statusMessage?: string) {
+/** HTTP error. */
+export class HttpError extends Error {
+  /** Information about the corresponding HTTP request. */
+  request: HttpRequest
+  /** Information about the corresponding HTTP response, if available. */
+  response?: HttpResponse
+
+  constructor (
+    /** The error message. */
+    message: string,
+    /** Information about the corresponding HTTP request. */
+    request: HttpRequest,
+    /** Information about the corresponding HTTP response, if available. */
+    response?: HttpResponse
+  ) {
     super(message)
     this.name = 'HttpError'
     this.request = request
-    this.statusCode = statusCode
-    this.statusMessage = statusMessage
+    this.response = response
   }
 }
 
-export class HttpRequest {
-  name: string
-  id: integer
-  method: string
-  resource: string
-  headers: OutgoingHttpHeaders
-  body: unknown
-  jsonBody?: string
-  action?: string
-  url: string
-
-  constructor (params: {
-    name: string,
-    id: integer,
-    method: string,
-    resource: string,
-    headers: OutgoingHttpHeaders,
-    body: unknown,
-    jsonBody?: string,
-    action?: string,
-    url: string
-  }) {
-    this.name = params.name
-    this.id = params.id
-    this.method = params.method
-    this.resource = params.resource
-    this.headers = params.headers
-    this.body = params.body
-    this.jsonBody = params.jsonBody
-    this.action = params.action
-    this.url = params.url
-  }
+/** {@link HttpClient} events. */
+export interface Events {
+  /** Emitted by {@link HttpClient.request request()} when a request is made.
+    * @event
+    * @param request - The HTTP request.
+    */
+  request: [request: HttpRequest]
+  /** Emitted by {@link HttpClient.request request()} when a response is received.
+    * @event
+    * @param response - The HTTP response.
+    */
+  response: [response: HttpResponse]
+  /** Emitted by {@link HttpClient.request request()} when an error occurs.
+    * @event
+    * @param error - The error.
+    */
+  error: [error: HttpError]
 }
 
-export class HttpResponse {
-  request: HttpRequest
-  statusCode?: integer
-  statusMessage?: string
-  headers?: IncomingHttpHeaders
-  body?: unknown
-  rawBody?: unknown
-
-  constructor (request: HttpRequest, params: {
-    statusCode?: integer,
-    statusMessage?: string,
-    headers?: IncomingHttpHeaders,
-    body?: unknown,
-    rawBody?: unknown
-  }) {
-    this.request = request
-    this.statusCode = params.statusCode
-    this.statusMessage = params.statusMessage
-    this.headers = params.headers
-    this.body = params.body
-    this.rawBody = params.rawBody
-  }
+/** {@link HttpClient} options. */
+export type Options = {
+  /** Certificate authority for the server. */
+  ca?: string | string[],
+  /** Custom function to check the server identity. */
+  checkServerIdentity?: (hostname: string, cert: PeerCertificate) => Error | undefined,
+  /** Default HTTP headers for each request. */
+  headers: http.OutgoingHttpHeaders,
+  /** Server hostname and port. */
+  host: host,
+  /** Use HTTPS (instead of HTTP). */
+  https: boolean,
+  /** Use IPv6 (instead of IPv4). */
+  ipv6: boolean,
+  /** Request body contains JSON. */
+  json: boolean,
+  /** Keep server connection(s) open. */
+  keepAlive: boolean,
+  /** Logger instance to log to. */
+  logger: Logger
+  /** Throttle requests to maximum number of parallel connections. */
+  maxSockets: integer,
+  /** The name of the server.  Defaults to hostname. */
+  name: string,
+  /** Server base path. */
+  path: path,
+  /** Server uses a self-signed SSL certificate. */
+  selfSignedCertificate: boolean,
+  /** Base suffix to append after resource, e.g. for authentication of the request. */
+  suffix: string,
+  /** Convert response body to text. */
+  text: boolean, // TODO: needed or can we use response type
+  /** Request timeout (in seconds). */
+  timeout: integer,
+  /** List of valid HTTP status codes.<br>
+    * {@link HttpClient#request request()} will throw an {@link HttpError}
+    * in case the response constains no body and the status code is not in this list.
+    */
+  validStatusCodes: integer[],
+  /** Parser for XML response body. */
+  xmlParser?: (xml: string) => Promise<jsonMap>
 }
 
-/** HTTP client.
-  * @extends EventEmitter
-  */
-export class HttpClient extends EventEmitter {
-  static get HttpError () { return HttpError }
-  static get HttpRequest () { return HttpRequest }
-  static get HttpResponse () { return HttpResponse }
-
-  error: (format: string | Error, ...args: unknown[]) => void
-  warn: (format: string | Error, ...args: unknown[]) => void
-  log: (format: string | Error, ...args: unknown[]) => void
-  debug: (format: string | Error, ...args: unknown[]) => void
-  vdebug: (format: string | Error, ...args: unknown[]) => void
-  vvdebug: (format: string | Error, ...args: unknown[]) => void
-  private __params
-  private __options
+/** HTTP client. */
+export class HttpClient extends EventEmitter<Events> {
+  private __options: Options & {
+    address?: string,
+    hostname: string,
+    localAddress?: string,
+    port?: integer,
+    url?: string
+  }
+  private __httpOptions: http.RequestOptions
   private __requestId: integer
   private __errorRequestId?: integer
   private _http: typeof http | typeof https
+  
+  protected error(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.error(format, ...args)
+  }
 
-  /** Create a new instance of a client to an HTTP server.
-    *
-    * @param {object} params - Parameters.
-    * @param {string|string[]} [params.ca] - Certificate authority for the server.
-    * @param {function} [params.checkServerIdentity] - Custom function to check
-    * the server identity.
-    * @param {object} [params.headers={}] - Default HTTP headers for each request.
-    * @param {string} [params.host='localhost:80'] - Server hostname and port.
-    * @param {boolean} [params.https=false] - Use HTTPS (instead of HTTP).
-    * @param {boolean} [params.ipv6=false] - Use IPv6 (instead of IPv4).
-    * @param {boolean} [params.json=false] - Use JSON, i.e. request and response
-    * bodies are JSON strings.
-    * @param {boolean} [params.keepAlive=false] - Keep server connection(s) open.
-    * @param {instance} [params.logger] - Logger instance to log to.
-    * @param {integer} [params.maxSockets=Infinity] - Throttle requests to
-    * maximum number of parallel connections.
-    * @param {?string} params.name - The name of the server.  Defaults to hostname.
-    * @param {string} [params.path=''] - Server base path.
-    * @param {boolean} [params.selfSignedCertificate=false] - Server uses a
-    * self-signed SSL certificate.
-    * @param {string} [params.suffix=''] - Base suffix to append after resource
-    * e.g. for authentication of the request.
-    * @param {boolean} [params.text=false] - Convert response body to text.
-    * @param {integer} [params.timeout=5] - Request timeout (in seconds).
-    * @param {integer[]} [params.validStatusCodes=[200]] - List of valid HTTP status codes.<br>
-    * {@link HttpClient#request request()} will throw an {@link HttpClient.HttpError HttpError}
-    * in case the response constains no body and the status code is not in this list.
-    * @param {?function} params.xmlParser - Parser for XML response body.
-    */
-  constructor (params: {
-    ca?: string | string[]
-    checkServerIdentity?: (hostname: string, cert: unknown) => Error | undefined
-    headers?: map<string>
-    host?: string
-    https?: boolean
-    ipv6?: boolean
-    json?: boolean
-    keepAlive?: boolean
-    logger?: Logger
-    maxSockets?: integer
-    name?: string
-    path?: string
-    selfSignedCertificate?: boolean
-    suffix?: string
-    text?: boolean
-    timeout?: integer
-    validStatusCodes?: integer[]
-    xmlParser?: (xml: string) => Promise<unknown>
-  }) {
+  protected warn(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.warn(format, ...args)
+  }
+
+  protected log(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.log(format, ...args)
+  }
+
+  protected debug(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.debug(format, ...args)
+  }
+
+  protected vdebug(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.vdebug(format, ...args)
+  }
+
+  protected vvdebug(format: string | Error, ...args: unknown[]): void {
+    return this.__options.logger?.vvdebug(format, ...args)
+  }
+
+  /** Create a new instance of a client to an HTTP server. */
+  constructor (options: Options) {
     super()
-    this.error = params.logger?.error.bind(params.logger) ?? (() => {})
-    this.warn = params.logger?.warn.bind(params.logger) ?? (() => {})
-    this.log = params.logger?.log.bind(params.logger) ?? (() => {})
-    this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
-    this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
-    this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
-    const { hostname, port } = toHost(params.host ?? 'localhost:80', { key: 'params.host' })
-    this.__params = {
-      address: undefined as string | undefined,
-      ca: params.ca === undefined ? undefined : toArray(params.ca, { key: 'params.ca' }) as string[],
-      checkServerIdentity: params.checkServerIdentity,
-      headers: params.headers ?? {},
-      hostname: hostname ?? 'localhost',
-      https: false,
-      ipv6: false,
-      json: false,
-      keepAlive: false,
-      localAddress: undefined as string | undefined,
-      maxSockets: Infinity,
-      name: params.name ?? undefined,
-      path: '',
+    const { hostname, port } = toHost(options.host ?? 'localhost', { key: 'params.host' })
+    this.__options = {
+      ca: options.ca === undefined ? undefined : toArray(options.ca, { key: 'options.ca' }) as string[],
+      checkServerIdentity: options.checkServerIdentity,
+      headers: options.headers ?? {},
+      hostname,
+      host: options.host ?? 'localhost',
+      https: options.https ?? false,
+      ipv6: options.ipv6 ?? false,
+      json: options.json ?? false,
+      keepAlive: options.keepAlive ?? false,
+      logger: options.logger,
+      maxSockets: options.maxSockets ?? Infinity,
+      name: options.name ?? undefined,
+      path: options.path ?? '/',
       port: port,
-      selfSignedCertificate: false,
-      suffix: '',
-      timeout: 5,
-      url: undefined as string | undefined,
-      validStatusCodes: [200] as integer[],
-      xmlParser: undefined as ((xml: string) => Promise<unknown>) | undefined
+      selfSignedCertificate: options.selfSignedCertificate ?? false,
+      suffix: options.suffix ?? '',
+      text: options.text ?? false,
+      timeout: options.timeout === undefined ? 5 : toInt(options.timeout, { key: 'options.timeout', min: 1, max: 60 }),
+      validStatusCodes: options.validStatusCodes ?? [200],
+      xmlParser: options.xmlParser
     }
-    const optionParser = new OptionParser(this.__params)
-    optionParser
-      .arrayKey('ca')
-      .functionKey('checkServerIdentity')
-      .hostKey()
-      .boolKey('https')
-      .boolKey('ipv6')
-      .objectKey('headers')
-      .boolKey('json')
-      .boolKey('keepAlive')
-      .instanceKey('logger')
-      .intKey('maxSockets', 1)
-      .stringKey('name', true)
-      .stringKey('path')
-      .boolKey('selfSignedCertificate')
-      .stringKey('suffix')
-      .boolKey('text')
-      .intKey('timeout', 1, 60)
-      .arrayKey('validStatusCodes')
-      .asyncFunctionKey('xmlParser')
-      .parse(params)
 
     this.on('error', (error) => { this.#logError(error) })
     this.on('request', (request) => { this.#logRequest(request) })
     this.on('response', (response) => { this.#logResponse(response) })
 
     if (
-      this.__params.ca || this.__params.checkServerIdentity ||
-      this.__params.selfSignedCertificate
+      this.__options.ca || this.__options.checkServerIdentity ||
+      this.__options.selfSignedCertificate
     ) {
-      this.__params.https = true
+      this.__options.https = true
     }
-    this._http = this.__params.https ? https : http
-    const agentOptions = {
-      ca: this.__params.ca ?? undefined,
-      checkServerIdentity: this.__params.checkServerIdentity ?? undefined,
-      keepAlive: this.__params.keepAlive,
-      maxSockets: this.__params.maxSockets,
-      rejectUnauthorized: !this.__params.selfSignedCertificate
+    this._http = this.__options.https ? https : http
+    const agentOptions: https.AgentOptions = {
+      ca: this.__options.ca ?? undefined,
+      checkServerIdentity: this.__options.checkServerIdentity ?? undefined,
+      keepAlive: this.__options.keepAlive,
+      maxSockets: this.__options.maxSockets,
+      rejectUnauthorized: !this.__options.selfSignedCertificate
     }
-    this.__options = {
+    this.__httpOptions = {
       agent: new this._http.Agent(agentOptions),
-      family: this.__params.ipv6 ? 6 : 4,
-      headers: Object.assign({}, this.__params.headers),
-      timeout: 1000 * this.__params.timeout
+      family: this.__options.ipv6 ? 6 : 4,
+      headers: Object.assign({}, this.__options.headers),
+      timeout: 1000 * this.__options.timeout
     }
-    if (this.__params.json) {
-      const json = 'application/json;charset=utf-8'
-      if (this.__options.headers == null) {
-        this.__options.headers = {}
-      }
-      this.__options.headers['Content-Type'] = json
-      if (this.__options.headers.Accept == null) {
-        this.__options.headers.Accept = json
+    if (this.__options.json) {
+      const contentType = 'application/json;charset=utf-8'
+      const headers = this.__httpOptions.headers as OutgoingHttpHeaders
+      headers['Content-Type'] = contentType
+      if (headers.Accept == null) {
+        headers.Accept = contentType
       } else {
-        this.__options.headers.Accept += ',' + json
+        headers.Accept += ',' + contentType
       }
     }
     this.#setUrl()
@@ -246,152 +239,132 @@ export class HttpClient extends EventEmitter {
   }
 
   #setUrl (): void {
-    this.__params.url = this.__params.https ? 'https://' : 'http://'
-    this.__params.url += this.__params.hostname
-    if (this.__params.port != null) {
-      this.__params.url += ':' + this.__params.port
+    this.__options.url = this.__options.https ? 'https://' : 'http://'
+    this.__options.url += this.__options.hostname
+    if (this.__options.port != null) {
+      this.__options.url += ':' + this.__options.port
     }
-    this.__params.url += this.__params.path
+    this.__options.url += this.__options.path
   }
 
-  /** Server IP address.
-    * @type {string}
-    * @readonly
-    */
-  get address () { return this.__params.address }
+  /** Server IP address. */
+  get address (): string | undefined { return this.__options.address }
 
-  /** Server hostname and port.
-    * @type {string}
-    */
-  get host () {
-    let host = this.__params.hostname
-    if (this.__params.port != null) {
-      host += ':' + this.__params.port
-    }
-    return host
-  }
-
-  set host (value) {
-    const obj = toHost(value, { key: 'host' })
-    this.__params.hostname = obj.hostname
-    this.__params.port = obj.port
+  /** Server hostname and port. */
+  get host (): host { return this.__options.host }
+  set host (host: host) {
+    const { hostname, port } = toHost(host, { key: 'host' })
+    this.__options.host = host
+    this.__options.hostname = hostname
+    this.__options.port = port ?? (this.__options.https ? 443 : 80)
     this.#setUrl()
   }
 
-  /** Local IP address used for the connection.
-    * @type {string}
-    * @readonly
-    */
-  get localAddress () { return this.__params.localAddress }
+  /** Local IP address used for the connection. */
+  get localAddress (): string | undefined { return this.__options.localAddress }
 
   /** Server frienly name.
+    * 
     * Defaults to the hostname.
-    * @type {string}
     */
-  get name () {
-    return this.__params.name == null
-      ? this.__params.hostname
-      : this.__params.name
-  }
+  get name (): string { return this.__options.name ?? this.__options.hostname }
   set name (name) {
-    this.__params.name = name
+    this.__options.name = name
   }
 
-  /** Server (base) path.
-    * @type {string}
-    */
-  get path () { return this.__params.path }
-  set path (value) {
-    this.__params.path = value == null
-      ? ''
-      : toPath(value, { key: 'path' })
+  /** Server (base) path. */
+  get path (): path { return this.__options.path }
+  set path (path) {
+    this.__options.path = toPath(path ?? '/', { key: 'path' })
     this.#setUrl()
   }
 
-  /** Server (base) url.
-    * @type {string}
-    * @readonly
-    */
-  get url () { return this.__params.url }
+  /** Server (base) url.  */
+  get url () { return this.__options.url }
 
-  /** GET request.
-    * @param {string} [resource='/'] - The resource.
-    * @param {?object} headers - Additional headers for the request.
-    * @param {?string} suffix - Additional suffix to append after resource
-    * e.g. for authentication of the request.
-    * @return {HttpClient.HttpResponse} response - The response.
-    * @throws {HttpClient.HttpError} In case of error.
-    */
-  async get (resource = '/', headers?: map<string>, suffix?: string) {
+  /** GET request. */
+  async get (
+    /** The resource. */
+    resource: path = '/',
+    /** Additional headers for the request. */
+    headers?: map<string>,
+    /** Additional suffix to append after resource */
+    suffix?: string
+  ): Promise<HttpResponse> {
     return this.request('GET', resource, undefined, headers, suffix)
   }
 
-  /** PUT request.
-    * @param {!string} resource - The resource.
-    * @param {?*} body - The body for the request.
-    * @param {?object} headers - Additional headers for the request.
-    * @param {?string} suffix - Additional suffix to append after resource
-    * e.g. for authentication of the request.
-    * @return {HttpClient.HttpResponse} response - The response.
-    * @throws {HttpClient.HttpError} In case of error.
-    */
-  async put (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
+  /** PUT request. */
+  async put (
+    /** The resource. */
+    resource: path,
+    /** The body for the request. */
+    body?: unknown,
+    /** Additional headers for the request. */
+    headers?: map<string>,
+    /** Additional suffix to append after resource */
+    suffix?: string
+  ): Promise<HttpResponse> {
     return this.request('PUT', resource, body, headers, suffix)
   }
 
-  /** POST request.
-    * @param {!string} resource - The resource.
-    * @param {?*} body - The body for the request.
-    * @param {?object} headers - Additional headers for the request.
-    * @param {?string} suffix - Additional suffix to append after resource
-    * e.g. for authentication of the request.
-    * @return {HttpClient.HttpResponse} response - The response.
-    * @throws {HttpClient.HttpError} In case of error.
-    */
-  async post (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
+  /** POST request. */
+  async post (
+    /** The resource. */
+    resource: path,
+    /** The body for the request. */
+    body?: unknown,
+    /** Additional headers for the request. */
+    headers?: map<string>,
+    /** Additional suffix to append after resource */
+    suffix?: string
+  ): Promise<HttpResponse> {
     return this.request('POST', resource, body, headers, suffix)
   }
 
-  /** DELETE request.
-    * @param {!string} resource - The resource.
-    * @param {?unknown} body - The body for the request.
-    * @param {?stringMap} headers - Additional headers for the request.
-    * @param {?string} suffix - Additional suffix to append after resource
-    * e.g. for authentication of the request.
-    * @return {object} response - The response.
-    * @throws {HttpClient.HttpError} In case of error.
-    */
-  async delete (resource: string, body?: unknown, headers?: map<string>, suffix?: string) {
+  /** DELETE request. */
+  async delete (
+    /** The resource. */
+    resource: path,
+    /** The body for the request. */
+    body?: unknown,
+    /** Additional headers for the request. */
+    headers?: map<string>,
+    /** Additional suffix to append after resource */
+    suffix?: string
+  ): Promise<HttpResponse> {
     return this.request('DELETE', resource, body, headers, suffix)
   }
 
-  /** Issue an HTTP request.
-    * @param {string} method - The method for the request.
-    * @param {!string} resource - The resource for the request.
-    * @param {?unknown} body - The body for the request.
-    * @param {?stringMap} headers - Additional headers for the request.
-    * @param {?string} suffix - Additional suffix to append after resource
-    * e.g. for authentication of the request.
-    * @param {?object} info - Additional key/value pairs to include in the
-    * for the `HttpRequest` of the `request`, `response`, and `error` events.
-    * @return {HttpClient.HttpResponse} response - The response.
-    * @throws {HttpClient.HttpError} In case of error.
-    */
-  async request (method: string, resource: string, body?: unknown, headers?: map<string>, suffix: string = '', info = {}) {
+  /** Issue an HTTP request. */
+  async request (
+    /** The HTTP method. */
+    method: string,
+    /** The resource. */
+    resource: path,
+    /** The body for the request. */
+    body?: unknown,
+    /** Additional headers for the request. */
+    headers?: map<string>,
+    /** Additional suffix to append after resource */
+    suffix: string = '',
+    /** Additional key/value pairs to include in the request info. */
+    info = {}
+  ): Promise<HttpResponse> {
     method = toString(method, { key: 'method', nonEmpty: true }).toUpperCase()
     if (!http.METHODS.includes(method)) {
       throw new TypeError(`${method}: invalid method`)
     }
-    resource = toString(resource, { key: 'resource', nonEmpty: true })
+    resource = toPath(resource, { key: 'resource' })
     if (body != null && !Buffer.isBuffer(body)) {
-      body = this.__params.json
+      body = this.__options.json
         ? JSON.stringify(body)
         : toString(body, { key: 'body' })
     }
     const requestId = ++this.__requestId
-    const url = this.__params.url + (resource === '/' ? '' : resource) +
-                this.__params.suffix + suffix
-    const options = Object.assign({ method }, this.__options)
+    const url = this.__options.url + (resource === '/' ? '' : resource) +
+                this.__options.suffix + suffix
+    const options: http.RequestOptions = Object.assign({ method }, this.__httpOptions as http.RequestOptions)
     const requestInfo = Object.assign({
       name: this.name,
       headers: headers ?? {},
@@ -407,43 +380,36 @@ export class HttpClient extends EventEmitter {
         if (!(error instanceof HttpError)) {
           error = new HttpError(error.message, requestInfo)
         }
-        /** Emitted in case of error.
-          * @event HttpClient#error
-          * @param {HttpClient.HttpError} error - The error.
-          */
-        this.emit('error', error)
+        this.emit('error', error as HttpError)
       })
       .on('timeout', () => {
         const error = new HttpError(
-          `timeout after ${this.__params.timeout} seconds`,
-          requestInfo, 408, 'Request Timeout'
+          `timeout after ${this.__options.timeout} seconds`,
+          requestInfo,
+          { request: requestInfo, statusCode: 408, statusMessage: 'Request Timeout' }
         )
         request.destroy(error)
       })
       .on('socket', (socket) => {
         if (
-          this.__params.address == null || this.__params.localAddress == null
+          this.__options.address == null || this.__options.localAddress == null
         ) {
           socket.once('connect', () => {
-            this.__params.address = socket.remoteAddress
-            this.__params.localAddress = socket.localAddress
+            this.__options.address = socket.remoteAddress
+            this.__options.localAddress = socket.localAddress
           })
         }
-        /** Emitted when a request has been sent to the HTTP server.
-          * @event HttpClient#request
-          * @param {HttpClient.HttpRequest} request - The request.
-          */
         this.emit('request', requestInfo)
         if (
-          this.__params.selfSignedCertificate &&
-          this.__params.checkServerIdentity != null
+          this.__options.selfSignedCertificate &&
+          this.__options.checkServerIdentity != null
         ) {
           socket.once('secureConnect', () => {
             const cert = (socket as TLSSocket).getPeerCertificate()
             if (Object.keys(cert).length === 0) {
               return
             }
-            const error = this.__params.checkServerIdentity!(this.__params.hostname, cert)
+            const error = this.__options.checkServerIdentity!(this.__options.hostname, cert)
             if (error != null) {
               request.destroy(error)
             }
@@ -486,28 +452,24 @@ export class HttpClient extends EventEmitter {
                 } catch (error) {
                   errorMessages.push('response contains invalid json: ' + (error as Error).message)
                 }
-              } else if (contentType?.endsWith('/xml') && this.__params.xmlParser != null) {
+              } else if (contentType?.endsWith('/xml') && this.__options.xmlParser != null) {
                 try {
                   responseInfo.rawBody = responseInfo.body
-                  responseInfo.body = await this.__params.xmlParser(responseInfo.body as string)
+                  responseInfo.body = await this.__options.xmlParser(responseInfo.body as string)
                 } catch (error) {
                   responseInfo.rawBody = null
                   errorMessages.push('response contains invalid xml: ' + (error as Error).message)
                 }
               }
             }
-            /** Emitted when a valid response has been received from the HTTP server.
-              * @event HttpClient#response
-              * @param {HttpClient.HttpResponse} response - The response.
-              */
             this.emit('response', responseInfo)
 
             if (
               responseInfo.body == null &&
-              response.statusCode != null &&
-              !this.__params.validStatusCodes.includes(response.statusCode)
+              responseInfo.statusCode != null &&
+              !this.__options.validStatusCodes.includes(responseInfo.statusCode)
             ) {
-              errorMessages.push(`http status ${response.statusCode} ${response.statusMessage}`)
+              errorMessages.push(`http status ${responseInfo.statusCode} ${responseInfo.statusMessage}`)
             }
             if (errorMessages.length > 0) {
               for (const errorMessage of errorMessages) {
@@ -516,7 +478,7 @@ export class HttpClient extends EventEmitter {
                   * @param {HttpClient.HttpError} error - The error.
                   */
                 this.emit('error', new HttpError(
-                  errorMessage, requestInfo, response.statusCode, response.statusMessage
+                  errorMessage, requestInfo, responseInfo
                 ))
               }
               return
