@@ -9,13 +9,15 @@
   */
 
 import type { jsonMap, map } from 'hb-lib-tools'
-import { Mode } from 'hb-lib-tools/CommandLineTool'
 
-import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
+import { createRequire } from 'node:module'
+
+import { CommandLineTool, Mode, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt } from 'hb-lib-tools/OptionParser'
 import { UpnpClient } from 'hb-lib-tools/UpnpClient'
+
+const require = createRequire(import.meta.url)
 
 const usage = `${b('upnp')} [${b('-hVDadnpsz')}] [${b('-T')} ${u('deviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `UPnP tool.
@@ -61,7 +63,7 @@ Parameters:
 
 /** @ignore */
 class UpnpTool extends CommandLineTool {
-  pkgJson: jsonMap
+  _packageJson: jsonMap
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
   options: {
@@ -72,9 +74,9 @@ class UpnpTool extends CommandLineTool {
   }
   upnp: map<unknown>
 
-  constructor (pkgJson: jsonMap) {
+  constructor (packageJson?: jsonMap) {
     super()
-    this.pkgJson = pkgJson
+    this._packageJson = packageJson ??require('../package.json')
     this.usage = usage
     this.options = {
       deviceType: 'upnp:rootdevice',
@@ -86,11 +88,11 @@ class UpnpTool extends CommandLineTool {
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this, this.pkgJson)
+    const parser = new CommandLineParser(this)
     parser
-      .help('h', 'help', help)
-      .version('V', 'version')
-      .debug('D', 'debug')
+      .helpFlag('h', 'help', help)
+      .versionFlag('V', 'version')
+      .debugFlag('D', 'debug')
       .flag('a', 'all', () => { this.upnp.deviceType = 'ssdp:all' })
       .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
       .flag('s', 'service', () => { this.options.mode = Mode.service })
