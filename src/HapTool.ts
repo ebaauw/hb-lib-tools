@@ -11,13 +11,15 @@
   */
 
 import type { integer, jsonMap } from 'hb-lib-tools'
-import { Mode } from 'hb-lib-tools/CommandLineTool'
 
-import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool, b, u } from 'hb-lib-tools/CommandLineTool'
+import { createRequire } from 'node:module'
+
+import { CommandLineTool, CommandLineParser, Mode, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
 import { toInt } from 'hb-lib-tools/OptionParser'
+
+const require = createRequire(import.meta.url)
 
 const usage = `${b('hap')} [${b('-hVDads')}] [${b('-T')} ${u('serviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `HAP tool.
@@ -55,7 +57,7 @@ Parameters:
 
 /** @ignore */
 class HapTool extends CommandLineTool {
-  pkgJson: jsonMap
+  protected _packageJson: jsonMap
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
   options: {
@@ -65,9 +67,9 @@ class HapTool extends CommandLineTool {
   }
 
 
-  constructor (pkgJson: jsonMap) {
-    super(pkgJson)
-    this.pkgJson = pkgJson
+  constructor (packageJson?: jsonMap) {
+    super()
+    this._packageJson = packageJson ?? require('../package.json')
     this.usage = usage
     this.options = {
       serviceType: 'hap',
@@ -76,11 +78,11 @@ class HapTool extends CommandLineTool {
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this, this.pkgJson)
+    const parser = new CommandLineParser(this)
     parser
-      .help('h', 'help', help)
-      .version('V', 'version')
-      .debug('D', 'debug')
+      .helpFlag('h', 'help', help)
+      .versionFlag('V', 'version')
+      .debugFlag('D', 'debug')
       .flag('a', 'all', () => { this.options.serviceType = '*' })
       .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
       .flag('s', 'service', () => { this.options.mode = Mode.service })
