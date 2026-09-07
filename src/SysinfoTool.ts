@@ -8,12 +8,15 @@
   * @module
   */
 
-import type { jsonMap, map } from 'hb-lib-tools'
+import type { jsonMap } from 'hb-lib-tools'
 
-import { CommandLineParser } from 'hb-lib-tools/CommandLineParser'
-import { CommandLineTool, b } from 'hb-lib-tools/CommandLineTool'
+import { createRequire } from 'node:module'
+
+import { CommandLineTool, CommandLineParser, b } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { SystemInfo } from 'hb-lib-tools/SystemInfo'
+
+const require = createRequire(import.meta.url)
 
 const usage = `${b('sysinfo')} [${b('-hVDj')}]`
 const help = `System information tool.
@@ -37,26 +40,22 @@ Parameters:
 
 /** @ignore */
 class SysinfoTool extends CommandLineTool {
-  pkgJson: jsonMap
+  _packageJson: jsonMap
   systemInfo: SystemInfo | null = null
   json = false
-  options: map<unknown> = {}
 
-  constructor (pkgJson: jsonMap) {
+  constructor (packageJson?: jsonMap) {
     super()
+    this._packageJson = packageJson ?? require('../package.json')
     this.usage = usage
-    this.options = {
-      noWhiteSpace: false
-    }
-    this.pkgJson = pkgJson
   }
 
   parseArguments () {
-    const parser = new CommandLineParser(this, this.pkgJson)
+    const parser = new CommandLineParser(this)
     parser
-      .help('h', 'help', help)
-      .version('V', 'version')
-      .debug('D', 'debug')
+      .helpFlag('h', 'help', help)
+      .versionFlag('V', 'version')
+      .debugFlag('D', 'debug')
       .flag('j', 'json', () => { this.json = true })
       .parse()
   }
@@ -67,7 +66,7 @@ class SysinfoTool extends CommandLineTool {
       this.systemInfo = new SystemInfo({ logger: this })
       await this.systemInfo.init()
       if (this.json) {
-        const jsonFormatter = new JsonFormatter(this.options)
+        const jsonFormatter = new JsonFormatter({ noWhiteSpace: false })
         this.print(jsonFormatter.stringify({
           hardware: this.systemInfo.hwInfo,
           os: this.systemInfo.osInfo
