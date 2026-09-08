@@ -3,18 +3,19 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, integer, jsonMap, map } from 'hb-lib-tools'
+import type { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
+import type { PeerCertificate, TLSSocket } from 'node:tls'
+import type { Logger, integer, jsonMap } from 'hb-lib-tools'
 import type { host, path } from 'hb-lib-tools/OptionParser'
 
 import { EventEmitter, once } from 'node:events'
-import http, { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
+import http from 'node:http'
 import https from 'node:https'
-import { PeerCertificate, TLSSocket } from 'tls'
 
-import { toArray, toHost, toInt, toObject, toPath, toString } from 'hb-lib-tools/OptionParser'
+import { toHost, toInt, toObject, toPath, toString } from 'hb-lib-tools/OptionParser'
 
 /** HTTP request information. */
-export type HttpRequest = {
+export interface HttpRequest {
   /** Name of the HTTP server. */
   name: string,
   /** Request ID. */
@@ -33,10 +34,12 @@ export type HttpRequest = {
   action?: string,
   /** Request URL. */
   url: string
+  /** Additional key/value pairs to include in the request info. */
+  info?: jsonMap
 }
 
 /** HTTP response information. */
-export type HttpResponse = {
+export interface HttpResponse {
   /** Information about the corresponding HTTP request. */
   request: HttpRequest
   /** The HTTP status code. */
@@ -93,13 +96,13 @@ export interface Events {
 }
 
 /** {@link HttpClient} options. */
-export type Options = {
+export interface Options {
   /** Certificate authority for the server. */
   ca?: string | string[],
   /** Custom function to check the server identity. */
-  checkServerIdentity?: (hostname: string, cert: PeerCertificate) => Error | undefined,
+  checkServerIdentity?(hostname: string, cert: PeerCertificate): Error | undefined,
   /** Default HTTP headers for each request. */
-  headers: http.OutgoingHttpHeaders,
+  headers: Record<string, string>,
   /** Server hostname and port. */
   host: host,
   /** Use HTTPS (instead of HTTP). */
@@ -111,7 +114,7 @@ export type Options = {
   /** Keep server connection(s) open. */
   keepAlive: boolean,
   /** Logger instance to log to. */
-  logger: Logger
+  logger?: Logger
   /** Throttle requests to maximum number of parallel connections. */
   maxSockets: integer,
   /** The name of the server.  Defaults to hostname. */
@@ -132,41 +135,41 @@ export type Options = {
     */
   validStatusCodes: integer[],
   /** Parser for XML response body. */
-  xmlParser?: (xml: string) => Promise<jsonMap>
+  xmlParser?(xml: string): Promise<jsonMap>
 }
 
 /** HTTP client. */
 export class HttpClient extends EventEmitter<Events> {
-  private __options: Options & {
+  private readonly __options: Options & {
     address?: string,
     hostname: string,
     localAddress?: string,
     port?: integer,
     url?: string
   }
-  private __httpOptions: http.RequestOptions
+  private readonly __httpOptions: http.RequestOptions
   private __requestId: integer
   private __errorRequestId?: integer
-  private _http: typeof http | typeof https
+  private readonly _http: typeof http | typeof https
   
-  protected error(format: string | Error, ...args: unknown[]): void {
-    return this.__options.logger?.error(format, ...args)
+  protected error(format: unknown, ...args: unknown[]): void {
+    this.__options.logger?.error(format, ...args)
   }
 
   protected warn(format: string | Error, ...args: unknown[]): void {
-    return this.__options.logger?.warn(format, ...args)
+    this.__options.logger?.warn(format, ...args)
   }
 
   protected log(format: string | Error, ...args: unknown[]): void {
-    return this.__options.logger?.log(format, ...args)
+    this.__options.logger?.log(format, ...args)
   }
 
   protected debug(format: string | Error, ...args: unknown[]): void {
-    return this.__options.logger?.debug(format, ...args)
+    this.__options.logger?.debug(format, ...args)
   }
 
   protected vdebug(format: string | Error, ...args: unknown[]): void {
-    return this.__options.logger?.vdebug(format, ...args)
+    this.__options.logger?.vdebug(format, ...args)
   }
 
   protected vvdebug(format: string | Error, ...args: unknown[]): void {
@@ -174,11 +177,11 @@ export class HttpClient extends EventEmitter<Events> {
   }
 
   /** Create a new instance of a client to an HTTP server. */
-  constructor (options: Options) {
+  constructor (options: Partial<Options> = {}) { // eslint-disable-line complexity -- ignore
     super()
     const { hostname, port } = toHost(options.host ?? 'localhost', { key: 'params.host' })
     this.__options = {
-      ca: options.ca === undefined ? undefined : toArray(options.ca, { key: 'options.ca' }) as string[],
+      ca: options.ca === undefined ? undefined : typeof options.ca === 'string' ? [ options.ca ] : options.ca,
       checkServerIdentity: options.checkServerIdentity,
       headers: options.headers ?? {},
       hostname,
@@ -189,14 +192,16 @@ export class HttpClient extends EventEmitter<Events> {
       keepAlive: options.keepAlive ?? false,
       logger: options.logger,
       maxSockets: options.maxSockets ?? Infinity,
-      name: options.name ?? undefined,
+      name: options.name ?? hostname,
       path: options.path ?? '/',
-      port: port,
+      port: port ?? ((options.https ?? false) ? 443 : 80), // eslint-disable-line @typescript-eslint/no-magic-numbers -- default ports
       selfSignedCertificate: options.selfSignedCertificate ?? false,
       suffix: options.suffix ?? '',
       text: options.text ?? false,
-      timeout: options.timeout === undefined ? 5 : toInt(options.timeout, { key: 'options.timeout', min: 1, max: 60 }),
-      validStatusCodes: options.validStatusCodes ?? [200],
+      timeout: options.timeout === undefined
+        ? 5 // eslint-disable-line @typescript-eslint/no-magic-numbers -- default timeout (seconds)
+        : toInt(options.timeout, { key: 'options.timeout', min: 1, max: 60 }),
+      validStatusCodes: options.validStatusCodes ?? [200], // eslint-disable-line @typescript-eslint/no-magic-numbers -- default valid status codes
       xmlParser: options.xmlParser
     }
 
@@ -205,7 +210,7 @@ export class HttpClient extends EventEmitter<Events> {
     this.on('response', (response) => { this.#logResponse(response) })
 
     if (
-      this.__options.ca || this.__options.checkServerIdentity ||
+      this.__options.ca != null || this.__options.checkServerIdentity != null||
       this.__options.selfSignedCertificate
     ) {
       this.__options.https = true
@@ -213,25 +218,25 @@ export class HttpClient extends EventEmitter<Events> {
     this._http = this.__options.https ? https : http
     const agentOptions: https.AgentOptions = {
       ca: this.__options.ca ?? undefined,
-      checkServerIdentity: this.__options.checkServerIdentity ?? undefined,
+      checkServerIdentity: this.__options.checkServerIdentity?.bind(this) ?? undefined,
       keepAlive: this.__options.keepAlive,
       maxSockets: this.__options.maxSockets,
       rejectUnauthorized: !this.__options.selfSignedCertificate
     }
+    const headers: OutgoingHttpHeaders = { ...this.__options.headers }
     this.__httpOptions = {
       agent: new this._http.Agent(agentOptions),
-      family: this.__options.ipv6 ? 6 : 4,
-      headers: Object.assign({}, this.__options.headers),
-      timeout: 1000 * this.__options.timeout
+      family: this.__options.ipv6 ? 6 : 4, // eslint-disable-line @typescript-eslint/no-magic-numbers -- 4=IPv4, 6=IPv6
+      headers,
+      timeout: this.__options.timeout * 1000 // eslint-disable-line @typescript-eslint/no-magic-numbers -- s -> ms
     }
     if (this.__options.json) {
       const contentType = 'application/json;charset=utf-8'
-      const headers = this.__httpOptions.headers as OutgoingHttpHeaders
       headers['Content-Type'] = contentType
       if (headers.Accept == null) {
         headers.Accept = contentType
       } else {
-        headers.Accept += ',' + contentType
+        headers.Accept = `${String(headers.Accept)},${contentType}`
       }
     }
     this.#setUrl()
@@ -242,7 +247,7 @@ export class HttpClient extends EventEmitter<Events> {
     this.__options.url = this.__options.https ? 'https://' : 'http://'
     this.__options.url += this.__options.hostname
     if (this.__options.port != null) {
-      this.__options.url += ':' + this.__options.port
+      this.__options.url += `:${this.__options.port}`
     }
     this.__options.url += this.__options.path
   }
@@ -256,7 +261,7 @@ export class HttpClient extends EventEmitter<Events> {
     const { hostname, port } = toHost(host, { key: 'host' })
     this.__options.host = host
     this.__options.hostname = hostname
-    this.__options.port = port ?? (this.__options.https ? 443 : 80)
+    this.__options.port = port ?? (this.__options.https ? 443 : 80) // eslint-disable-line @typescript-eslint/no-magic-numbers -- default ports
     this.#setUrl()
   }
 
@@ -267,7 +272,7 @@ export class HttpClient extends EventEmitter<Events> {
     * 
     * Defaults to the hostname.
     */
-  get name (): string { return this.__options.name ?? this.__options.hostname }
+  get name (): string { return this.__options.name }
   set name (name) {
     this.__options.name = name
   }
@@ -275,23 +280,23 @@ export class HttpClient extends EventEmitter<Events> {
   /** Server (base) path. */
   get path (): path { return this.__options.path }
   set path (path) {
-    this.__options.path = toPath(path ?? '/', { key: 'path' })
+    this.__options.path = toPath(path, { key: 'path' })
     this.#setUrl()
   }
 
   /** Server (base) url.  */
-  get url () { return this.__options.url }
+  get url (): string | undefined { return this.__options.url}
 
   /** GET request. */
   async get (
     /** The resource. */
     resource: path = '/',
     /** Additional headers for the request. */
-    headers?: map<string>,
+    headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return this.request('GET', resource, undefined, headers, suffix)
+    return await this.request('GET', resource, undefined, headers, suffix)
   }
 
   /** PUT request. */
@@ -301,11 +306,11 @@ export class HttpClient extends EventEmitter<Events> {
     /** The body for the request. */
     body?: unknown,
     /** Additional headers for the request. */
-    headers?: map<string>,
+    headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return this.request('PUT', resource, body, headers, suffix)
+    return await this.request('PUT', resource, body, headers, suffix)
   }
 
   /** POST request. */
@@ -315,11 +320,11 @@ export class HttpClient extends EventEmitter<Events> {
     /** The body for the request. */
     body?: unknown,
     /** Additional headers for the request. */
-    headers?: map<string>,
+    headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return this.request('POST', resource, body, headers, suffix)
+    return await this.request('POST', resource, body, headers, suffix)
   }
 
   /** DELETE request. */
@@ -329,15 +334,15 @@ export class HttpClient extends EventEmitter<Events> {
     /** The body for the request. */
     body?: unknown,
     /** Additional headers for the request. */
-    headers?: map<string>,
+    headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return this.request('DELETE', resource, body, headers, suffix)
+    return await this.request('DELETE', resource, body, headers, suffix)
   }
 
   /** Issue an HTTP request. */
-  async request (
+  async request ( // eslint-disable-line @typescript-eslint/max-params -- ignore
     /** The HTTP method. */
     method: string,
     /** The resource. */
@@ -345,42 +350,41 @@ export class HttpClient extends EventEmitter<Events> {
     /** The body for the request. */
     body?: unknown,
     /** Additional headers for the request. */
-    headers?: map<string>,
+    headers?: Record<string, string>,
     /** Additional suffix to append after resource */
-    suffix: string = '',
+    suffix = '',
     /** Additional key/value pairs to include in the request info. */
-    info = {}
+    info: jsonMap = {}
   ): Promise<HttpResponse> {
-    method = toString(method, { key: 'method', nonEmpty: true }).toUpperCase()
+    method = toString(method, { key: 'method', nonEmpty: true }).toUpperCase() // eslint-disable-line no-param-reassign -- ignore
     if (!http.METHODS.includes(method)) {
       throw new TypeError(`${method}: invalid method`)
     }
-    resource = toPath(resource, { key: 'resource' })
+    resource = toPath(resource, { key: 'resource' }) // eslint-disable-line no-param-reassign -- ignore
     if (body != null && !Buffer.isBuffer(body)) {
-      body = this.__options.json
+      body = this.__options.json // eslint-disable-line no-param-reassign -- ignore
         ? JSON.stringify(body)
         : toString(body, { key: 'body' })
     }
-    const requestId = ++this.__requestId
+    this.__requestId += 1
+    const { __requestId: requestId } = this
     const url = this.__options.url + (resource === '/' ? '' : resource) +
                 this.__options.suffix + suffix
-    const options: http.RequestOptions = Object.assign({ method }, this.__httpOptions as http.RequestOptions)
-    const requestInfo = Object.assign({
+    const options: http.RequestOptions = { method, ...this.__httpOptions }
+    const requestInfo: HttpRequest = {
       name: this.name,
       headers: headers ?? {},
       id: requestId,
       method,
       resource,
       body,
-      url
-    }, info) as HttpRequest
+      url,
+      info
+    }
     const request = this._http.request(url, options)
     request
       .on('error', (error) => {
-        if (!(error instanceof HttpError)) {
-          error = new HttpError(error.message, requestInfo)
-        }
-        this.emit('error', error as HttpError)
+        this.emit('error', error instanceof HttpError ? error : new HttpError(error.message, requestInfo))
       })
       .on('timeout', () => {
         const error = new HttpError(
@@ -390,13 +394,14 @@ export class HttpClient extends EventEmitter<Events> {
         )
         request.destroy(error)
       })
-      .on('socket', (socket) => {
+      .on('socket', (socket: TLSSocket) => {
         if (
           this.__options.address == null || this.__options.localAddress == null
         ) {
           socket.once('connect', () => {
-            this.__options.address = socket.remoteAddress
-            this.__options.localAddress = socket.localAddress
+            const { remoteAddress, localAddress } = socket
+            this.__options.address = remoteAddress
+            this.__options.localAddress = localAddress
           })
         }
         this.emit('request', requestInfo)
@@ -405,11 +410,11 @@ export class HttpClient extends EventEmitter<Events> {
           this.__options.checkServerIdentity != null
         ) {
           socket.once('secureConnect', () => {
-            const cert = (socket as TLSSocket).getPeerCertificate()
+            const cert = socket.getPeerCertificate()
             if (Object.keys(cert).length === 0) {
               return
             }
-            const error = this.__options.checkServerIdentity!(this.__options.hostname, cert)
+            const error = this.__options.checkServerIdentity?.(this.__options.hostname, cert)
             if (error != null) {
               request.destroy(error)
             }
@@ -419,46 +424,51 @@ export class HttpClient extends EventEmitter<Events> {
       .on('response', (response) => {
         const chunks: Buffer[] = []
         response
-          .on('data', (chunk) => { chunks.push(chunk) })
-          .on('end', async () => {
+          .on('data', (chunk: Buffer) => { chunks.push(chunk) })
+          .on('end', async (): Promise<void> => { // eslint-disable-line complexity, @typescript-eslint/no-misused-promises -- ignore
             const buffer = Buffer.concat(chunks)
-            const responseInfo = {
+            const responseInfo: HttpResponse = {
               request: requestInfo,
               headers: response.headers,
               statusCode: response.statusCode,
               statusMessage: response.statusMessage,
               body: buffer.length > 0 ? buffer : null
-            } as HttpResponse
+            }
             const errorMessages = []
 
             const a = response.headers['content-type']?.split(';')
             const contentType = a?.[0]
-            const charset = (a?.[1]?.split('=')[1]?.replace(/"/g, '') ?? 'utf-8') as BufferEncoding
+            const charset = (a?.[1]?.split('=')[1]?.replace(/"/gv, '') ?? 'utf-8') as BufferEncoding
             if (
-              contentType?.startsWith('text/') ||
-              contentType?.endsWith('/json') ||
-              contentType?.endsWith('/xml')
+              contentType != null && (
+                contentType.startsWith('text/') ||
+                contentType.endsWith('/json') ||
+                contentType.endsWith('/xml')
+              )
             ) {
               try {
-                responseInfo.body = (responseInfo.body as Buffer)?.toString(charset)
+                responseInfo.body = buffer.toString(charset)
               } catch (error) {
-                errorMessages.push('response contains invalid text: ' + (error as Error).message)
+                const message = error instanceof Error ? error.message : String(error)
+                errorMessages.push(`response contains invalid text: ${message}`)
               }
             }
-            if (responseInfo.body != null) {
-              if (contentType?.endsWith('/json')) {
+            if (typeof responseInfo.body === 'string') {
+              if (contentType?.endsWith('/json') ?? false) {
                 try {
-                  responseInfo.body = JSON.parse(responseInfo.body as string)
+                  responseInfo.body = JSON.parse(responseInfo.body)
                 } catch (error) {
-                  errorMessages.push('response contains invalid json: ' + (error as Error).message)
+                  const message = error instanceof Error ? error.message : String(error)
+                  errorMessages.push(`response contains invalid json: ${message}`)
                 }
-              } else if (contentType?.endsWith('/xml') && this.__options.xmlParser != null) {
+              } else if ((contentType?.endsWith('/xml') ?? false) && this.__options.xmlParser != null) {
                 try {
-                  responseInfo.rawBody = responseInfo.body
-                  responseInfo.body = await this.__options.xmlParser(responseInfo.body as string)
+                  responseInfo.rawBody = responseInfo.body // eslint-disable-line @typescript-eslint/prefer-destructuring -- ignore
+                  responseInfo.body = await this.__options.xmlParser(responseInfo.body)
                 } catch (error) {
                   responseInfo.rawBody = null
-                  errorMessages.push('response contains invalid xml: ' + (error as Error).message)
+                  const message = error instanceof Error ? error.message : String(error)
+                  errorMessages.push(`response contains invalid xml: ${message}`)
                 }
               }
             }
@@ -483,19 +493,19 @@ export class HttpClient extends EventEmitter<Events> {
               }
               return
             }
-            this.emit('' + requestId, responseInfo)
+            this.emit(`${requestId}`, responseInfo)
           })
       })
 
     if (headers != null) {
-      headers = toObject(headers, { key: 'headers' }) as map<string>
+      headers = toObject(headers, { key: 'headers' }) as Record<string, string>
       for (const header in headers) {
         request.setHeader(header, headers[header])
       }
     }
     requestInfo.headers = request.getHeaders()
     request.end(body)
-    const a = await once(this, '' + requestId)
+    const a = await once(this, `${requestId}`)
     return a[0]
   }
 
