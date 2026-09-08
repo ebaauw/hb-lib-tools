@@ -18,10 +18,12 @@ import type { integer } from 'hb-lib-tools'
 import { toHexString } from 'hb-lib-tools'
 import { toInt, toNumber } from 'hb-lib-tools/OptionParser'
 
-type point = {
+interface point {
   x: number,
   y: number
 }
+
+/* eslint-disable @typescript-eslint/no-magic-numbers -- Allow magic numbers for colour space conversions. */
 
 /** [CIE 1931](https://en.wikipedia.org/wiki/CIE_1931_color_space) `xy` coordinates, between 0.0 and 1.0.
   * 
@@ -38,7 +40,10 @@ export type xy = [number, number]
   * @throws On invalid input values.
   */
 export function toXy (x: number, y: number): xy {
-  return [toNumber(x, { key: 'x', min: 0, max: 1 }), toNumber(y, { key: 'y', min: 0, max: 1 })]
+  return [
+    toNumber(x, { key: 'x', min: 0, max: 1 }),
+    toNumber(y, { key: 'y', min: 0, max: 1 })
+  ]
 }
 
 function pointToXy (p: point): xy { return [p.x, p.y] }
@@ -50,7 +55,7 @@ function xyToPoint (xy: xy): point { return { x: xy[0], y: xy[1] } }
   * The gamut defines the colours that an RGB light can physically reproduce, based on the
   * colours of the red, green, and blue LEDs used.
   */
-export type gamut = {
+export interface gamut {
   /** Coordinates for red. */
   r: xy
   /** Coordinates for green. */
@@ -66,7 +71,7 @@ export type gamut = {
   * @return The corresponding {@link Colour!gamut gamut}.
   * @throws On invalid input values.
   */
-function toGamut (r: xy, g: xy, b: xy): gamut {
+export function toGamut (r: xy, g: xy, b: xy): gamut {
   return {
     r: toXy(r[0], r[1]),
     g: toXy(g[0], g[1]),
@@ -80,7 +85,7 @@ function toGamut (r: xy, g: xy, b: xy): gamut {
   * HomeKit uses the `Hue` and `Saturation` characteristics for Hue and Saturation.
   * I think it implicitly uses a Value of 100%, though, theoretically, that should correspond to `Brightness`.
   */
-export type hsv = {
+export interface hsv {
   /** Hue, between 0˚ and 360˚. */
   h: integer,
   /** Saturation, between 0% and 100%. */
@@ -109,7 +114,7 @@ export function toHsv (h: integer, s: integer, v: integer = 100): hsv {
   * 
   * Typically, computer systems scale these values to an 8-bit unsigned integer.
   */
-export type rgb = {
+export interface rgb {
   /** Red, between 0.0 and 1.0. */
   r: number,
   /** Green, between 0.0 and 1.0. */
@@ -138,7 +143,7 @@ export function toRgb (r: number, g: number, b: number): rgb {
  */
 export type rgbString = string & {}
 
-const rgbStringPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/
+const rgbStringPattern = /^#(?<r>[0-9a-fA-F]{2})(?<g>[0-9a-fA-F]{2})(?<b>[0-9a-fA-F]{2})$/v
 
 /** Convert {@link Colour!rgbString rgbString} to {@link rgb}.
   * @param s - The RGB colour as string.
@@ -147,21 +152,21 @@ const rgbStringPattern = /^#([0-9a-fA-F]{2})([0-9a-fA-F]{2})([0-9a-fA-F]{2})$/
   */
 export function rgbStringToRgb (s: rgbString): rgb {
   const a = rgbStringPattern.exec(s)
-  if (a == null || a[1] == null || a[2] == null || a[3] == null) {
+  if (a?.groups == null) {
     throw new TypeError('not a valid RGB colour string')
   }
-  const r = toInt('0x' + a[1], { key: 'r' }) / 0xFF
-  const g = toInt('0x' + a[2], { key: 'g' }) / 0xFF
-  const b = toInt('0x' + a[3], { key: 'b' }) / 0xFF
+  const r = toInt(`0x${a.groups.r}`, { key: 'r' }) / 0xFF
+  const g = toInt(`0x${a.groups.g}`, { key: 'g' }) / 0xFF
+  const b = toInt(`0x${a.groups.b}`, { key: 'b' }) / 0xFF
   return toRgb(r, g, b)
 }
 
 /** Convert {@link Colour!rgb rgb} to {@link rgbString}. */
 export function rgbToRgbString (rgb: rgb): rgbString {
-  return '#' +
-    toHexString(Math.round(rgb.r * 0xFF), { length: 2 }) +
-    toHexString(Math.round(rgb.g * 0xFF), { length: 2 }) +
-    toHexString(Math.round(rgb.b * 0xFF), { length: 2 })
+  const rr = toHexString(Math.round(rgb.r * 0xFF), { length: 2 })
+  const gg = toHexString(Math.round(rgb.g * 0xFF), { length: 2 })
+  const bb = toHexString(Math.round(rgb.b * 0xFF), { length: 2 })
+  return `#${rr}${gg}${bb}`
 }
 
 /** Safe default gamut taking into account:
@@ -233,7 +238,7 @@ export const gamutByManufacturer = {
 // Return point in color gamut closest to p.
 function closestInGamut (p: point, gamut: gamut): point {
   // Return cross product of two points.
-  function crossProduct (p1: point, p2: point) {
+  function crossProduct (p1: point, p2: point): number {
     return p1.x * p2.y - p1.y * p2.x
   }
 
@@ -272,15 +277,15 @@ function closestInGamut (p: point, gamut: gamut): point {
   const dGB = distance(p, pGB)
   const dBR = distance(p, pBR)
   let min = dRG
-  p = pRG
+  let pResult = pRG
   if (dGB < min) {
     min = dGB
-    p = pGB
+    pResult = pGB
   }
   if (dBR < min) {
-    p = pBR
+    pResult = pBR
   }
-  return p
+  return pResult
 }
 
 /** Convert {@link Colour!hsv hsv} to {@link rgb}.
@@ -301,16 +306,15 @@ export function hsvToRgb (hsv: hsv): rgb {
     x = -x
   }
   x = C * (1.0 - x)
-  let r!: number, g!: number, b!: number
   switch (Math.floor(h) % 6) {
-    case 0: r = C + m; g = x + m; b = m; break
-    case 1: r = x + m; g = C + m; b = m; break
-    case 2: r = m; g = C + m; b = x + m; break
-    case 3: r = m; g = x + m; b = C + m; break
-    case 4: r = x + m; g = m; b = C + m; break
-    case 5: r = C + m; g = m; b = x + m; break
+    case 0: return toRgb(C + m, x + m, m)
+    case 1: return toRgb(x + m, C + m, m)
+    case 2: return toRgb(m, C + m, x + m)
+    case 3: return toRgb(m, x + m, C + m)
+    case 4: return toRgb(x + m, m, C + m)
+    case 5:
+    default: return toRgb(C + m, m, x + m)
   }
-  return toRgb(r, g, b)
 }
 
 /**
@@ -326,7 +330,7 @@ export function rgbToHsv (rgb: rgb): hsv {
   const m = Math.min(r, g, b)
   const C = M - m
   const S = (M === 0.0) ? 0.0 : C / M
-  let H!: number
+  let H = 0.0
   switch (M) {
     case m:
       H = 0.0
@@ -359,8 +363,8 @@ export function rgbToHsv (rgb: rgb): hsv {
   */
 export function hsvToXy (hsv: hsv, gamut: gamut = defaultGamut): xy {
   // Gamma correction (inverse sRGB Companding).
-  function invCompand (v: number) {
-    return v > 0.04045 ? Math.pow((v + 0.055) / (1.0 + 0.055), 2.4) : v / 12.92
+  function invCompand (v: number): number {
+    return v > 0.04045 ? ((v + 0.055) / (1.0 + 0.055)) ** 2.4 : v / 12.92
   }
 
   let { r, g, b } = hsvToRgb(hsv)
@@ -387,13 +391,13 @@ export function hsvToXy (hsv: hsv, gamut: gamut = defaultGamut): xy {
   * @return The closest matching sRGB colour.
   */
 export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
-  let r!: number, g!: number, b!: number
+  let r: number, g: number, b: number // eslint-disable-line @typescript-eslint/init-declarations -- set later
 
   // Inverse Gamma correction (sRGB Companding).
   function compand (v: number): number {
     return v <= 0.0031308
       ? 12.92 * v
-      : (1.0 + 0.055) * Math.pow(v, (1.0 / 2.4)) - 0.055
+      : (1.0 + 0.055) * v ** (1.0 / 2.4) - 0.055
   }
 
   // Correction for negative values is missing from Philips' documentation.
@@ -417,7 +421,7 @@ export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
 
   // xyY to XYZ to RGB
   const p = closestInGamut(xyToPoint(xy), gamut)
-  const x = p.x
+  const x = p.x // eslint-disable-line @typescript-eslint/prefer-destructuring -- keep consistent with y below
   const y = p.y === 0.0 ? 0.000001 : p.y
   const z = 1.0 - x - y
   const Y = 1.0
@@ -446,7 +450,7 @@ export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
   */
 export function ctToXy (ct: integer): xy {
   const kelvin = 1000000 / ct
-  let x, y
+  let x, y // eslint-disable-line @typescript-eslint/init-declarations -- set later
 
   if (kelvin < 4000) {
     x = 11790 +
@@ -480,3 +484,5 @@ export function ctToXy (ct: integer): xy {
   y /= 0xFFFF
   return toXy(Math.round(x * 10000) / 10000, Math.round(y * 10000) / 10000)
 }
+
+/* eslint-enable @typescript-eslint/no-magic-numbers -- Allow magic numbers for colour space conversions. */
