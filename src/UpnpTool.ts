@@ -8,16 +8,15 @@
   * @module
   */
 
-import type { jsonMap, map } from 'hb-lib-tools'
+import type { jsonMap } from 'hb-lib-tools'
+import type { Mode } from 'hb-lib-tools/CommandLineTool'
 
-import { createRequire } from 'node:module'
-
-import { CommandLineTool, Mode, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt } from 'hb-lib-tools/OptionParser'
 import { UpnpClient } from 'hb-lib-tools/UpnpClient'
 
-const require = createRequire(import.meta.url)
+import defaultPackageJson from '../package.json' with { type: 'json' }
 
 const usage = `${b('upnp')} [${b('-hVDadnpsz')}] [${b('-T')} ${u('deviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `UPnP tool.
@@ -68,16 +67,16 @@ class UpnpTool extends CommandLineTool {
   jsonFormatter!: JsonFormatter
   options: {
     deviceType: string,
-    filter?: (message: map<string>) => boolean,
+    filter? (message: Record<string, string>): boolean,
     mode?: Mode,
     timeout: number
   }
-  upnp: map<unknown>
+  upnp: Record<string, unknown>
 
   constructor (packageJson?: jsonMap) {
     super()
-    this._packageJson = packageJson ??require('../package.json')
-    this.usage = usage
+
+    this._packageJson = packageJson ?? defaultPackageJson
     this.options = {
       deviceType: 'upnp:rootdevice',
       timeout: 5
@@ -87,15 +86,15 @@ class UpnpTool extends CommandLineTool {
     }
   }
 
-  parseArguments () {
+  parseArguments (): void {
     const parser = new CommandLineParser(this)
     parser
       .helpFlag('h', 'help', help)
       .versionFlag('V', 'version')
       .debugFlag('D', 'debug')
       .flag('a', 'all', () => { this.upnp.deviceType = 'ssdp:all' })
-      .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
-      .flag('s', 'service', () => { this.options.mode = Mode.service })
+      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
+      .flag('s', 'service', () => { this.options.mode = 'service' })
       .option('T', 'deviceType', (value) => { this.upnp.deviceType = value })
       .option('t', 'timeout', (value) => {
         this.upnp.timeout = toInt(
@@ -103,9 +102,8 @@ class UpnpTool extends CommandLineTool {
         )
       })
       .flag('p', 'hue', () => {
-        this.upnp.filter = (message: map<string>) => {
-          return /^[0-9A-F]{16}$/.test(message['hue-bridgeid'])
-        }
+        this.upnp.filter = (message: Record<string, string>) =>
+          /^[0-9A-F]{16}$/v.test(message['hue-bridgeid'])
       })
       .flag('z', 'sonos', () => {
         this.upnp.deviceType = 'urn:schemas-upnp-org:device:ZonePlayer:1'
@@ -113,11 +111,11 @@ class UpnpTool extends CommandLineTool {
       .parse()
   }
 
-  async main () {
+  async main (): Promise<void> {
     try {
       this.parseArguments()
       this.jsonFormatter = new JsonFormatter(
-        this.options.mode === Mode.service
+        this.options.mode === 'service'
           ? { noWhiteSpace: true, sortKeys: true }
           : { sortKeys: true }
       )
@@ -134,12 +132,13 @@ class UpnpTool extends CommandLineTool {
       const result = await this.upnpClient.search()
       this.print(this.jsonFormatter.stringify(result))
     } catch (error) {
-      await this.fatal(error as Error)
+      this.fatal(error)
     }
   }
 
-  async destroy () {
+  async destroy (): Promise<void> {
     this.upnpClient?.stopListen()
+    await Promise.resolve()
   }
 }
 
