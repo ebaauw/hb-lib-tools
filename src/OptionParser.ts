@@ -7,68 +7,59 @@
   * @module 
   */
 
-import type { integer, map } from 'hb-lib-tools'
+import type { integer } from 'hb-lib-tools'
 
-export type hostname = string | 'localhost'
-export type Host = { hostname: hostname, port?: integer }
-export type host = string | 'localhost'
-export type path = string | ''
+export type hostname = string
+export interface Host { hostname: hostname, port?: integer }
+export type host = string
+export type path = string
 
 import { EventEmitter } from 'node:events'
 import { posix } from 'node:path'
 import { isIPv4, isIPv6 } from 'node:net'
-
 
 /** User input error. */
 export class UserInputError extends Error {}
 
 // Create a new RangeError or UserInputError, depending on userInput.
 function newRangeError (message: string, options: { key?: string, userInput?: boolean } = {}): RangeError | UserInputError {
-  if (options.key != null) {
-    message = `${options.key}: ${message}`
-  }
-  return options.userInput ? new UserInputError(message) : new RangeError(message)
+  const m = (options.key == null) ? message : `${options.key}: ${message}`
+  return (options.userInput ?? false) ? new UserInputError(m) : new RangeError(m)
 }
 
 // Create a new SyntaxError or UserInputError, depending on userInput.
 function newSyntaxError (message: string, options: { key?: string, userInput?: boolean } = {}): SyntaxError | UserInputError {
-  if (options.key != null) {
-    message = `${options.key}: ${message}`
-  }
-  return options.userInput ? new UserInputError(message) : new SyntaxError(message)
+  const m = (options.key == null) ? message : `${options.key}: ${message}`
+  return (options.userInput ?? false) ? new UserInputError(m) : new SyntaxError(m)
 }
 
 // Create a new TypeError or UserInputError, depending on userInput.
 function newTypeError (message: string, options: { key?: string, userInput?: boolean } = {}): TypeError | UserInputError {
-  if (options.key != null) {
-    message = `${options.key}: ${message}`
-  }
-  return options.userInput ? new UserInputError(message) : new TypeError(message)
+  const m = (options.key == null) ? message : `${options.key}: ${message}`
+  return (options.userInput ?? false) ? new UserInputError(m) : new TypeError(m)
 }
 
 /** Callback function type. */
-export type CallBackFunction = {
+export interface CallBackFunction {
   (value: unknown): void
-  list?: map<unknown>
+  list?: Record<string, unknown>
 }
 
-/* eslint-disable max-len */
 const patterns = {
-  host: /^(?:\[(.+)\]|([^:]+))(?::([0-9]{1,5}))?$/,
-  hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
-  int: /^\s*([+-]?)([0-9]+(?:\.0*)?)\s*$/,
-  intBin: /^\s*([+-]?)(?:0[bB])([01]+)\s*$/,
-  intOct: /^\s*([+-]?)(?:0[oO])([0-8]+)\s*$/,
-  intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/,
-  ipv4: /^(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])\.(\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5])$/,
-  number: /^\s*[+-]?((?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/,
-  mac: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
-  mac64: /^([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})[:-]([0-9a-fA-F]{1,2})$/,
-  uuid: /^([0-9a-fA-F]{8})-([0-9a-fA-F]{4})-([1-5][0-9a-fA-F]{3})-([89abAB][0-9a-fA-F]{3})-([0-9a-fA-F]{12})$/
+  host: /^(?:\[(?<ipv6>.+)\]|(?<hostname>[^:]+))(?::(?<port>[0-9]{1,5}))?$/v,
+  hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$/v,
+  int: /^\s*([+-]?)([0-9]+(?:\.0*)?)\s*$/v,
+  intBin: /^\s*(?<sign>[+-]?)(?:0[bB])(?<digits>[01]+)\s*$/v,
+  intOct: /^\s*(?<sign>[+-]?)(?:0[oO])(?<digits>[0-8]+)\s*$/v,
+  intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/v,
+  ipv4: /^\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]\.(?:\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]){3}$/v,
+  number: /^\s*[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/v,
+  mac: /^([0-9a-fA-F]{1,2})([:-]([0-9a-fA-F]{1,2})){5}$/v,
+  mac64: /^([0-9a-fA-F]{1,2})([:-]([0-9a-fA-F]{1,2})){7}$/v,
+  uuid: /^(?:[0-9a-fA-F]{8})-(?:[0-9a-fA-F]{4})-(?:[1-5][0-9a-fA-F]{3})-(?:[89abAB][0-9a-fA-F]{3})-(?:[0-9a-fA-F]{12})$/v
 }
-/* eslint-enable max-len */
 
-function validateOptions (options: { key?: unknown, nonEmpty?: unknown, userInput?: unknown } = {}) {
+function validateOptions (options: { key?: unknown, nonEmpty?: unknown, userInput?: unknown } = {}): void {
   if (options.key !== undefined) {
     if (options.key == null) {
       throw new TypeError('options.key: missing string value')
@@ -119,21 +110,22 @@ export function toBool (
     userInput?: boolean
   } = {}): boolean {
   validateOptions(options)
-  if (value == null) {
+  let v = value
+  if (v == null) {
     throw newTypeError('missing boolean value', options)
   }
-  if (typeof value === 'boolean') {
-    return value
+  if (typeof v === 'boolean') {
+    return v
   }
-  if (typeof value === 'number') {
-    value = '' + value
+  if (typeof v === 'number') {
+    v = `${v}`
   }
-  if (typeof value === 'string') {
-    value = value.toLowerCase()
-    if (['true', 'yes', 'on', '1'].includes(value as string)) {
+  if (typeof v === 'string') {
+    const s = v.toLowerCase()
+    if (['true', 'yes', 'on', '1'].includes(s)) {
       return true
     }
-    if (['false', 'no', 'off', '0'].includes(value as string)) {
+    if (['false', 'no', 'off', '0'].includes(s)) {
       return false
     }
   }
@@ -169,26 +161,36 @@ export function toInt (
     throw newRangeError('options.max: smaller than options.min')
   }
 
-  let i: integer
+  let i: integer // eslint-disable-line @typescript-eslint/init-declarations -- initial value not used
   if (value == null) {
     throw newTypeError('missing integer value', options)
   }
   if (typeof value === 'number') {
-    value = '' + value
+    value = String(value) // eslint-disable-line no-param-reassign -- ignore
   }
   if (typeof value === 'boolean') {
     i = value ? 1 : 0
   } else if (typeof value === 'string') {
     if (patterns.int.test(value)) {
-      i = parseInt(value)
+      i = parseInt(value, 10)
     } else if (patterns.intHex.test(value)) {
       i = parseInt(value, 16)
     } else if (patterns.intOct.test(value)) {
       const a = patterns.intOct.exec(value)
-      i = parseInt(a![1] + a![2], 8)
+      if (a?.groups == null) {
+        throw newTypeError('not an integer', options)
+      }
+      const { groups } = a
+      const { sign, digits } = groups
+      i = parseInt(sign + digits, 8)
     } else if (patterns.intBin.test(value)) {
       const a = patterns.intBin.exec(value)
-      i = parseInt(a![1] + a![2], 2)
+      if (a?.groups == null) {
+        throw newTypeError('not an integer', options)
+      }
+      const { groups } = a
+      const { sign, digits } = groups
+      i = parseInt(sign + digits, 2)
     } else {
       throw newTypeError('not an integer', options)
     }
@@ -664,15 +666,15 @@ export interface  Events {
 
 /** Parser and validator for options and other parameters. */
 class OptionParser extends EventEmitter<Events> {
-  _object: map<unknown>
+  _object: Record<string, unknown>
   _userInput: boolean
-  _callbacks: map<CallBackFunction>
+  _callbacks: Record<string, CallBackFunction>
 
   /** Creates a new OptionParser instance
     *
     * @param {boolean} [userInput=false] - Options were input by user.
     */
-  constructor (object: map<unknown> = {}, userInput: boolean = false) {
+  constructor (object: Record<string, unknown> = {}, userInput: boolean = false) {
     super()
     this._object = object
     this._userInput = userInput
@@ -962,7 +964,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} Unknown option.
     * @throws {UserInputError} On error, when value was input by user.
     */
-  parse (options: map<unknown>): map<unknown> {
+  parse (options: Record<string, unknown>): Record<string, unknown> {
     for (const key in options) {
       try {
         const value = options[key]
