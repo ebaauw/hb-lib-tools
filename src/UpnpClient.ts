@@ -3,24 +3,24 @@
 // Library for Homebridge plugins.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
-import type { integer, map } from 'hb-lib-tools'
+import type { integer, Logger } from 'hb-lib-tools'
 
 import { createSocket } from 'node:dgram'
 import { EventEmitter, once } from 'node:events'
 
-import { Logger, timeout } from 'hb-lib-tools'
+import { timeout } from 'hb-lib-tools'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
 // Convert raw UPnP message to message object.
-function convert (rawMessage: string): map<string> {
-  const message = {} as map<string>
-  const lines = rawMessage.toString().trim().split('\r\n')
-  if (lines && lines[0]) {
-    message.status = lines[0]
+function convert (rawMessage: string): Record<string, string> {
+  const message: Record<string, string> = {}
+  const lines: string[] = rawMessage.trim().split('\r\n')
+  if (lines.at(0) != null) {
+    message.status = lines.at(0)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- lines.at(0) != null
     for (const line of lines) {
       const fields = line.split(': ')
-      if (fields.length === 2) {
-        message[fields[0].toLowerCase()] = fields[1]
+      if (fields.length === 2) { // eslint-disable-line @typescript-eslint/no-magic-numbers -- key: value
+        message[fields.at(0)!.toLowerCase()] = fields.at(1)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- fields.length === 2
       }
     }
   }
@@ -34,22 +34,18 @@ export interface Events {
     * @param address - The IP address of the device.
     * @param message - The parsed UPnP alive message.
     */
-  deviceAlive: [ address: string, message: map<string>]
+  deviceAlive: [ address: string, message: Record<string, string>]
   /** Emitted by {@link UpnpClient.search search()} for each device found, that passes the filters.
     * @event
     * @param address - The IP address of the device.
     * @param message - The parsed UPnP found message.
     */
-  deviceFound: [ address: string, message: map<string>]
+  deviceFound: [ address: string, message: Record<string, string>]
 }
 
 /** Universal Plug and Play client. */
 class UpnpClient extends EventEmitter<Events> {
-  private warn: (format: string | Error, ...args: unknown[]) => void
-  private debug: (format: string | Error, ...args: unknown[]) => void
-  private vdebug: (format: string | Error, ...args: unknown[]) => void
-  private vvdebug: (format: string | Error, ...args: unknown[]) => void
-  private options
+  private readonly options
   private socket?: ReturnType<typeof createSocket>
   private host?: string
 
@@ -61,26 +57,43 @@ class UpnpClient extends EventEmitter<Events> {
     deviceType?: string,
     /** Function to filter UPnP messages.
       * Default is to accept all messages.
-     */
-    filter?: (message: map<string>) => boolean,
+      */
+    filter?(message: Record<string, string>): boolean,
     logger?: Logger,
     /** Timeout (in seconds) for {@link UpnpClient.search search()}
       * to listen for responses.
-      * */
+      * 
+      * Default is 5 seconds.
+      */
     timeout?: integer
   } = {}) {
     super()
-    this.warn = params.logger?.warn.bind(params.logger) ?? (() => {})
-    this.debug = params.logger?.debug.bind(params.logger) ?? (() => {})
-    this.vdebug = params.logger?.vdebug.bind(params.logger) ?? (() => {})
-    this.vvdebug = params.logger?.vvdebug.bind(params.logger) ?? (() => {})
     this.options = {
       deviceType: params.deviceType ?? 'upnp:rootdevice',
-      filter: params.filter ?? (() => { return true }) as (message: map<string>) => boolean,
+      filter: params.filter?.bind(this) ?? (() => true),
+      logger: params.logger,
       hostname: '239.255.255.250',
       port: 1900,
-      timeout: params.timeout == null ? 5 : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 })
+      timeout: params.timeout == null
+        ? 5 // eslint-disable-line @typescript-eslint/no-magic-numbers -- default timeout
+        : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 }) 
     }
+  }
+
+  private warn (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.warn(format, ...args)
+  }
+
+  private debug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.debug(format, ...args)
+  }
+
+  private vdebug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.vdebug(format, ...args)
+  }
+
+  private vvdebug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.vvdebug(format, ...args)
   }
 
   /** Listen for UPnP alive broadcast messages.
@@ -99,14 +112,14 @@ class UpnpClient extends EventEmitter<Events> {
         this.warn(error)
       })
       .on('listening', () => {
-        this.host = this.socket!.address().address +
-          ':' + this.socket!.address().port
+        const { address, port } = this.socket!.address() // eslint-disable-line @typescript-eslint/no-non-null-assertion -- this.socket != null
+        this.host = `${address}:${port}`
         this.debug(
           'upnp: listening on %s for %s',
           this.host, this.options.deviceType
         )
       })
-      .on('close', async () => {
+      .on('close', () => {
         this.debug('upnp: stop listening on %s', this.host)
         this.host = undefined
         this.socket?.removeAllListeners()
@@ -147,10 +160,9 @@ class UpnpClient extends EventEmitter<Events> {
     * response received, that passes the filters.
     * @return Promise that resolves to a map of the found devices.
     */
-  async search (): Promise<{ [key: string]: map<string> }> {
-    const result = {} as { [key: string]: map<string> }
+  async search (): Promise<Record<string, Record<string, string>>> {
+    const result: Record<string, Record<string, string>> = {}
     const socket = createSocket({ type: 'udp4' })
-    let host
     const request = Buffer.from([
       'M-SEARCH * HTTP/1.1',
       `HOST: ${this.options.hostname}:${this.options.port}`,
@@ -163,10 +175,11 @@ class UpnpClient extends EventEmitter<Events> {
     socket
       .on('error', (error) => { this.warn(error) })
       .on('listening', () => {
-        host = socket.address().address + ':' + socket.address().port
+        const { address, port } = socket.address()
+        this.host = `${address}:${port}`
         this.debug(
           'upnp: listening on %s for %s',
-          host, this.options.deviceType
+          this.host, this.options.deviceType
         )
       })
       .on('message', (buffer, rinfo) => {
@@ -197,11 +210,11 @@ class UpnpClient extends EventEmitter<Events> {
     socket.send(
       request, 0, request.length, this.options.port, this.options.hostname
     )
-    await timeout(this.options.timeout * 1000)
+    await timeout(this.options.timeout * 1000) // eslint-disable-line @typescript-eslint/no-magic-numbers -- s to ms
     this.debug('upnp: search done')
     socket.close()
     await once(socket, 'close')
-    this.debug('upnp: stop listening on %s', host)
+    this.debug('upnp: stop listening on %s', this.host)
     return result
   }
 }
