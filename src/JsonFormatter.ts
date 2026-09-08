@@ -10,25 +10,21 @@
 import type { integer, json, jsonMap } from 'hb-lib-tools'
 import type { path } from 'hb-lib-tools/OptionParser'
 
-const isSimple = (value: json): boolean => {
-  return value === null || ['boolean', 'number', 'string'].includes(typeof value)
-}
-
 /** {@link JsonFormatter} options. */
-export type Options = {
+export interface Options {
   /** Output _path_`:`_value_ in plain text instead of JSON.
     *
     * Default: `false`.
     *  
     * Command-line equivalent: `json -a`.
     */
-  ascii?: boolean,
+  ascii: boolean,
   /** Limit output to key/values under path.
     * Set top level below path.
     *
     * Command-line equivalent: `json -p `_path_
     */
-  fromPath?: path,
+  fromPath: path,
   /** Output JSON array of objects for each key/value pair.
     * Each object contains two key/value pairs: key `keys` with an array
     * of keys as value and key `value` with the value as value.
@@ -37,7 +33,7 @@ export type Options = {
     *  
     * Command-line equivalent: `json -j`
     */
-  jsonArray?: boolean,
+  jsonArray: boolean,
   /** Output JSON array of objects for each key/value pair.
     * Each object contains one key/value pair: the path (concatenated
     * keys separated by '/') as key and the value as value.
@@ -46,7 +42,7 @@ export type Options = {
     *  
     * Command-line equivalent: `json -u`
     */
-  joinKeys?: boolean,
+  joinKeys: boolean,
   /** Limit output to keys.
     * <br>With `joinKeys` output JSON array of paths.
     *
@@ -54,42 +50,42 @@ export type Options = {
     *  
     * Command-line equivalent: `json -k`
     */
-  keysOnly?: boolean,
+  keysOnly: boolean,
   /** Limit output to leaf (non-array, non-object) key/values.
     *
     * Default: `false`.
     *  
     * Command-line equivalent: `json -l`
     */
-  leavesOnly?: boolean,
+  leavesOnly: boolean,
   /** Limit output to levels above depth.
     *
     * Default: `Number.MAX_SAFE_INTEGER`.
     *  
     * Command-line equivalent: `json -d `_depth_
     */
-  maxDepth?: integer,
+  maxDepth: integer,
   /** Do not include spaces nor newlines in the output.
     *
     * Default: `false`.
     *  
     * Command-line equivalent: `json -n`
     */
-  noWhiteSpace?: boolean,
+  noWhiteSpace: boolean,
   /** Sort object key/value pairs alphabetically on key.
     *
     * Default: `false`.
     *  
     * Command-line equivalent: `json -s`
     */
-  sortKeys?: boolean,
+  sortKeys: boolean,
   /** Limit output to top-level key/values.
     *
     * Default: `false`.
     *  
     * Command-line equivalent: `json -t`
     */
-  topOnly?: boolean,
+  topOnly: boolean,
   /** Limit output to values.
     * <br>With `joinKeys` output JSON array of values.
     *
@@ -97,7 +93,7 @@ export type Options = {
     *  
     * Command-line equivalent: `json -v`
     */
-  valuesOnly?: boolean
+  valuesOnly: boolean
 }
 
 /** JSON formatter.
@@ -111,12 +107,12 @@ class JsonFormatter {
   /** Create a new instance of a JSON formatter. */
   constructor (
     /** Options to configure how the JSON should be formatted. */
-    options: Options = {}
+    options: Partial<Options> = {}
   ) {
     this.options = {
       ascii: options.ascii ?? false,
-      fromPath: options.fromPath,
-      jsonArray: options.jsonArray ?? false as boolean,
+      fromPath: options.fromPath ?? '/',
+      jsonArray: options.jsonArray ?? false,
       joinKeys: options.joinKeys ?? false,
       keysOnly: options.keysOnly ?? false,
       leavesOnly: options.leavesOnly ?? false,
@@ -141,17 +137,25 @@ class JsonFormatter {
   #forEach (value: json, callback: (keys: string[], value: json) => void): void {
     const forEach: (keys: string[], value: json, depth: number) => void = (keys, value, depth) => {
       if (
-        isSimple(value) &&
+        (value == null || typeof value !== 'object') &&
         (!this.options.leavesOnly && (!this.options.topOnly || depth === 1))
       ) {
         callback(keys, value)
         return
       }
       if (
+        typeof value === 'object' && value != null &&
         (!this.options.topOnly || depth === 0) &&
         depth !== this.options.maxDepth
       ) {
-        value = value as jsonMap
+        if (Array.isArray(value)) {
+          let i = 0
+          for (const elt of value) {
+            forEach(keys.concat([String(i)]), elt, depth + 1)
+            i += 1
+          }
+          return
+        }
         const list = Object.keys(value)
         if (this.options.sortKeys && !Array.isArray(value)) {
           list.sort()
@@ -173,26 +177,37 @@ class JsonFormatter {
     return array
   }
 
-  #format (value: json, maxDepth: integer = this.options.maxDepth, withIndent: string = '  '): string {
+  #stringMap (value: json, callback: (keys: string[], value: json) => string): string[] {
+    const array: string[] = []
+    this.#forEach(value, (keys, value) => {
+      array.push(callback(keys, value))
+    })
+    return array
+  }
+
+  #format (value: json, maxDepth: integer = this.options.maxDepth, withIndent = '  '): string {
     const format = (value: json, depth: integer, indent: string): string => {
-      const noNewline = this.options.noWhiteSpace || (maxDepth != null && depth >= maxDepth)
+      const noNewline = this.options.noWhiteSpace || depth >= maxDepth
       const nl = this.options.noWhiteSpace ? '' : noNewline ? ' ' : '\n'
       const sp = this.options.noWhiteSpace ? '' : ' '
       const nlsp = noNewline ? '' : '\n'
       const wi = noNewline ? '' : withIndent
       const id = noNewline ? '' : indent
 
-      if (isSimple(value)) {
+      if (value === null || typeof value !== 'object') {
         return JSON.stringify(value)
       }
-      value = value as jsonMap
       const array = []
-      const list = Object.keys(value)
-      if (this.options.sortKeys && !Array.isArray(value)) {
-        list.sort()
-      }
-      for (const key of list) {
-        if (value[key] !== undefined) {
+      if (Array.isArray(value)) {
+        for (const elt of value) {
+          array.push(format(elt, depth + 1, `${wi}${id}`))
+        }
+      } else {
+        const list = Object.keys(value)
+        if (this.options.sortKeys && !Array.isArray(value)) {
+          list.sort()
+        }
+        for (const key of list) {
           const k = Array.isArray(value) ? '' : `"${key}":${sp}`
           const v = format(value[key], depth + 1, `${wi}${id}`)
           array.push(k + v)
@@ -212,28 +227,35 @@ class JsonFormatter {
     * @return The formatted JSON string.
     */
   stringify (
-    /* * The JavaScript value to format as JSON. */
+    /* The JavaScript value. */
     value: json
-  ): string | null{
-    if (this.options.fromPath != null) {
-      const a = this.options.fromPath!.slice(1).split('/')
+  ): string | null {
+    let val = value
+    if (this.options.fromPath !== '/') {
+      const a = this.options.fromPath.slice(1).split('/')
       for (const key of a) {
-        if (typeof value === 'object' && value != null) {
-          value = (value as jsonMap)[key]
+        if (typeof val === 'object' && val != null) {
+          val = Array.isArray(val) ? val[Number(key)] : val[key]
         } else {
           return null
         }
       }
     }
+
     if (!this.options.jsonArray) {
-      return this.#format(value)
+      return this.#format(val)
     }
-    const array = this.#map(value, (keys: string[], value: json) => {
-      if (this.options.ascii) {
+    
+    if (this.options.ascii) {
+      const array = this.#stringMap(val, (keys: string[], value: json) => {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return this.#format(value) }
         return `/${keys.join('/')}:${this.#format(value)}`
-      } else if (this.options.joinKeys) {
+      })
+      return array.join('\n')
+    }
+    const array = this.#map(val, (keys: string[], value: json) => {
+      if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
         const obj: jsonMap = {}
@@ -245,9 +267,6 @@ class JsonFormatter {
         return { keys, value }
       }
     })
-    if (this.options.ascii) {
-      return array.join('\n')
-    }
     return this.#format(array, 1)
   }
 }
