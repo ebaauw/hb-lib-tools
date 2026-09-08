@@ -83,11 +83,32 @@
   */
 
 export type integer = number & {}
-export type map<T> = { [key: string]: T }
+
 export type json = null | boolean | number | string | json[] | jsonMap
-export type jsonMap = { [key: string]: json }
+export interface jsonMap extends Record<string, json> {}
+
+/** Guard for {@link json}. */
+export function isJson (json: unknown): json is json {
+  if (json === null || typeof json === 'boolean' || typeof json === 'number' || typeof json === 'string') {
+    return true
+  }
+  if (Array.isArray(json)) {
+    return json.every((v) => isJson(v))
+  }
+  if (typeof json === 'object') {
+    return Object.keys(json).every(k => typeof k === 'string') &&
+    Object.values(json).every((v) => isJson(v))
+  }
+  return false
+}
+
+/** Guard for {@link jsonMap}. */
+export function isJsonMap (json: unknown): json is jsonMap {
+  return typeof json === 'object' && json !== null && !Array.isArray(json) && isJson(json)
+}
 
 import { isIPv6 } from 'node:net'
+import { setTimeout } from 'node:timers/promises'
 import { getSystemErrorMessage } from 'node:util'
 
 import { chalk } from 'hb-lib-tools/chalk'
@@ -99,20 +120,21 @@ import { toInt, toIntString } from 'hb-lib-tools/OptionParser'
   * Each of these methods uses `printf`-style arguments.
   * In case the last (or only) argument is an `Error`,
   * {@link formatError formatError()} is called to convert it to a string.
+  * In case the first (or only) argument is not a `string`, it is converted to one using `String()`.
   */
 export interface Logger {
   /** Log error message. */
-  error (format: string | Error, ...args: unknown[]): void,
+  error (format: unknown, ...args: unknown[]): void,
   /** Log warning message. */
-  warn (format: string | Error, ...args: unknown[]): void,
+  warn (format: unknown, ...args: unknown[]): void,
   /** Log regular log message. */
-  log (format: string | Error, ...args: unknown[]): void,
+  log (format: unknown, ...args: unknown[]): void,
   /** Log debug message. */
-  debug (format: string | Error, ...args: unknown[]): void,
+  debug (format: unknown, ...args: unknown[]): void,
   /** Log verbose debug message. */
-  vdebug (format: string | Error, ...args: unknown[]): void,
+  vdebug (format: unknown, ...args: unknown[]): void,
   /** Log very verbose debug message. */
-  vvdebug (format: string | Error, ...args: unknown[]): void,
+  vvdebug (format: unknown, ...args: unknown[]): void,
 }
 
 interface SystemError extends Error {
@@ -128,7 +150,7 @@ interface SystemError extends Error {
 }
 
 // Check of e is a JavaScript runtime error.
-function isJavaScriptError (e: Error) {
+function isJavaScriptError (e: Error): boolean {
   return [
     'AssertionError',
     'EvalError',
@@ -141,57 +163,68 @@ function isJavaScriptError (e: Error) {
 }
 
 // Check if e is a NodeJs runtime error.
-function isNodejsError (e: SystemError) {
+function isNodejsError (e: SystemError): boolean {
   return typeof e.code === 'string' && e.code.startsWith('ERR_')
 }
 
+function getLabel (e: SystemError): string | undefined {
+  if (e.path != null) {
+    return e.path
+  }
+  if (e.dest != null) {
+    return e.dest
+  }
+  if (e.address != null) {
+    let { address } = e
+    if (isIPv6(address)) {
+      address = `[${address}]`
+    } 
+    if (e.port != null) {
+      return `${address}:${e.port}`
+    }
+    return address
+  }
+  if (e.port != null) {
+    return `${e.port}`
+  }
+  if (e.hostname != null) {
+    return e.hostname
+  }
+  return undefined
+}
 
 /** Convert Error to string.
   *
   * Include the stack trace only for programming errors (JavaScript and NodeJS
   * runtime errors).
+  * 
   * Translate system errors into more readable messages.
-  * @param error - The error.
-  * @param useChalk - Use chalk to grey out the stack trace.
-  * @return The error as string.
   */
-export function formatError (error: Error, useChalk = false) {
+export function formatError (
+  /** The error. */
+  error: Error,
+  /** Use chalk to grey out the stack trace. */
+  useChalk = false
+): string {
   if (isJavaScriptError(error) || isNodejsError(error)) {
     if (error.stack != null) {
       if (useChalk) {
         const lines = error.stack.split('\n')
         const firstLine = lines.shift()
-        return firstLine + '\n' + chalk.reset.gray(lines.join('\n'))
+        return `${firstLine}\n${chalk.reset.gray(lines.join('\n'))}`
       }
       return error.stack
     }
   }
   const e = error as SystemError
   if (e.errno != null) {
-    let label = ''
-    if (e.path != null) {
-      label = e.path
-    } else if (e.dest != null) {
-      label = e.dest
-    } else if (e.address != null) {
-      label = e.address
-      if (isIPv6(label)) {
-        label = '[' + label + ']'
-      }
-      if (e.port != null) {
-        label += ':' + e.port
-      }
-    } else if (e.port != null) {
-      label = '' + e.port
-    } else if (e.hostname != null) {
-      label = e.hostname
-    }
-    const message = getSystemErrorMessage(e.errno)
-    if (label != null && message != null) {
+    const label = getLabel(e)
+    if (label != null) {
+      const message = getSystemErrorMessage(e.errno)
       return `${label}: cannot ${e.syscall}: ${e.code}: ${message}`
     }
   }
-  if (e.cmd != null && e.message.slice(-1) === '\n') { // exec error
+  if (e.cmd != null && e.message.endsWith('\n')) { // exec error
     return e.message.slice(0, e.message.length - 1)
   }
   return e.message
@@ -200,13 +233,18 @@ export function formatError (error: Error, useChalk = false) {
 /** Return the recommended version of NodeJS from package.json.
   * This is the version used to develop and test the software,
   * typically the latest LTS version.
-  * @param packageJson - The contents of `package.json`.
-  * @return The recommended version of NodeJS.
   */
-export function recommendedNodeVersion (packageJson: jsonMap) {
-  const engines = packageJson.engines as jsonMap
-  const node = engines.node as string
-  return node.split('||')?.[0] ?? process.version.slice(1)
+export function recommendedNodeVersion (
+  /** The contents of `package.json`. */
+  packageJson: jsonMap
+): string {
+  if (
+    packageJson.engines == null || typeof packageJson.engines != 'object' ||
+    !('node' in packageJson.engines) || typeof packageJson.engines.node !== 'string'
+  ) {
+    return process.version.slice(1)
+  }
+  return packageJson.engines.node.split('||')[0]
 }
 
 /** Resolve after given time, delaying execution.
@@ -224,12 +262,8 @@ export async function timeout (
   /** Time (in msec) to wait. */
   msec: integer
 ): Promise<void> {
-  msec = toInt(msec, { key: 'msec', min: 0 })
-  return new Promise((resolve: () => void) => {
-    setTimeout(() => {
-      resolve()
-    }, msec)
-  })
+  const ms = toInt(msec, { key: 'msec', min: 0 })
+  await setTimeout(ms)
 }
 
 /** Convert integer or Buffer to hex string.
@@ -245,7 +279,7 @@ export function toHexString (
     length?: integer
   } = {}): string {
   if (Buffer.isBuffer(value)) {
-    return value.toString('hex').toUpperCase().replace(/..\B/g, '$&:')
+    return value.toString('hex').toUpperCase().replace(/..\B/vg, '$&:')
   }
   const length = options.length == null ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
   return toIntString(value, { key: 'value', radix: 16, length })
