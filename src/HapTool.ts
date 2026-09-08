@@ -11,15 +11,14 @@
   */
 
 import type { integer, jsonMap } from 'hb-lib-tools'
+import type { Mode } from 'hb-lib-tools/CommandLineTool'
 
-import { createRequire } from 'node:module'
-
-import { CommandLineTool, CommandLineParser, Mode, b, u } from 'hb-lib-tools/CommandLineTool'
+import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
-const require = createRequire(import.meta.url)
+import defaultPackageJson from '../package.json' with { type: 'json' }
 
 const usage = `${b('hap')} [${b('-hVDads')}] [${b('-T')} ${u('serviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `HAP tool.
@@ -69,42 +68,41 @@ class HapTool extends CommandLineTool {
 
   constructor (packageJson?: jsonMap) {
     super()
-    this._packageJson = packageJson ?? require('../package.json')
-    this.usage = usage
+    this._packageJson = packageJson ?? defaultPackageJson
     this.options = {
       serviceType: 'hap',
       timeout: 5
     }
   }
 
-  parseArguments () {
+  parseArguments (): void {
     const parser = new CommandLineParser(this)
     parser
       .helpFlag('h', 'help', help)
       .versionFlag('V', 'version')
       .debugFlag('D', 'debug')
       .flag('a', 'all', () => { this.options.serviceType = '*' })
-      .flag('d', 'daemon', () => { this.options.mode = Mode.daemon })
-      .flag('s', 'service', () => { this.options.mode = Mode.service })
+      .flag('d', 'daemon', () => { this.options.mode = 'daemon' })
+      .flag('s', 'service', () => { this.options.mode = 'service' })
       .option('T', 'serviceType', (value) => { this.options.serviceType = value })
       .option('t', 'timeout', (value) => {
         this.options.timeout = toInt(value, { key: 'timeout', min: 1, max: 60, userInput: true })
       })
       .parse()
     this.jsonFormatter = new JsonFormatter(
-      this.options.mode === Mode.service
+      this.options.mode === 'service'
         ? { noWhiteSpace: true, sortKeys: true }
         : { sortKeys: true }
     )
   }
 
-  async main () {
+  async main (): Promise<void> {
     try {
       this.parseArguments()
       this.client = new MdnsClient({
         logger: this,
-        serviceType: this.options.serviceType as string,
-        timeout: this.options.timeout as integer
+        serviceType: this.options.serviceType,
+        timeout: this.options.timeout
       })
       if (this.options.mode != null) {
         this.setOptions({ mode: this.options.mode })
@@ -117,12 +115,13 @@ class HapTool extends CommandLineTool {
       const result = await this.client.search()
       this.print(this.jsonFormatter.stringify(result))
     } catch (error) {
-      await this.fatal(error as Error)
+      this.error(error)
     }
   }
 
-  async destroy () {
+  async destroy (): Promise<void> {
     this.client?.stopListen()
+    await Promise.resolve()
   }
 }
 
