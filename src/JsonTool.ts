@@ -10,21 +10,29 @@
   * @module
   */
 
-import type { integer, json, jsonMap } from 'hb-lib-tools'
-
-import { createRequire } from 'node:module'
+import type { integer, jsonMap } from 'hb-lib-tools'
 
 import { readFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
 import { unzip } from 'node:zlib'
 
+import { isJson } from 'hb-lib-tools'
 import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt, toPath } from 'hb-lib-tools/OptionParser'
 
-const require = createRequire(import.meta.url)
+import defaultPackageJson from '../package.json' with { type: 'json' }
 
 const gunzip = promisify(unzip)
+
+async function readStdin (): Promise<string> {
+  let s = ''
+  process.stdin.setEncoding('utf8')
+  for await (const chunk of process.stdin) {
+    s += chunk
+  }
+  return s
+}
 
 const usage = `${b('json')} [${b('-hVsnjuatlkv')}] [${b('-p')} path] [${b('-d')} depth] [${b('-c')} ${u('string')}]... [${u('file')}]...`
 const help = `JSON formatter.
@@ -89,7 +97,7 @@ Parameters:
 /** @ignore */
 class JsonTool extends CommandLineTool {
   protected _packageJson: jsonMap
-  private options: {
+  private readonly options: {
     sortKeys: boolean,
     noWhiteSpace: boolean,
     jsonArray: boolean,
@@ -102,15 +110,15 @@ class JsonTool extends CommandLineTool {
     keysOnly: boolean,
     valuesOnly: boolean
   }
-  private stringList: string[]
-  private fileList: string[]
+  private readonly stringList: string[]
+  private readonly fileList: string[]
   private jsonFormatter!: JsonFormatter
   private n!: integer
 
   /** @hidden */
   constructor (packageJson?: jsonMap) {
     super()
-    this._packageJson = packageJson ?? require('../package.json')
+    this._packageJson = packageJson ?? defaultPackageJson
     this.usage = usage
     this.options = {
       sortKeys: false,
@@ -119,7 +127,7 @@ class JsonTool extends CommandLineTool {
       joinKeys: false,
       ascii: false,
       topOnly: false,
-      maxDepth: Number.MAX_SAFE_INTEGER as integer,
+      maxDepth: Number.MAX_SAFE_INTEGER,
       leavesOnly: false,
       keysOnly: false,
       valuesOnly: false
@@ -150,65 +158,58 @@ class JsonTool extends CommandLineTool {
       .flag('k', 'keysOnly', () => { this.options.keysOnly = true })
       .flag('v', 'valuesOnly', () => { this.options.valuesOnly = true })
       .option('c', 'string', (value) => { this.stringList.push(value) })
-      .remaining((list) => { this.fileList = list })
+      .remaining((list) => { this.fileList.push(...list) })
       .parse()
   }
 
   processString (s: string): void {
-    let value: json
     try {
-      value = JSON.parse(s)
-    } catch (error) {
-      throw new Error((error as Error).message, { cause: error }) // Convert SyntaxError to Error.
-    }
-    const output = this.jsonFormatter.stringify(value)
-    if (this.n++ > 0) {
-      this.print('------')
-    }
-    if (output !== '') {
-      this.print(output)
+      const json: unknown = JSON.parse(s)
+      if (!isJson(json)) {
+        throw new Error('Not valid JSON')
+      }
+      const output = this.jsonFormatter.stringify(json)
+      if (this.n > 0) {
+        this.print('------')
+      }
+      this.n += 1
+      if (output !== '') {
+        this.print(output)
+      }
+    } catch (error: unknown) {
+      if (error instanceof SyntaxError) {
+        throw new Error(error.message, { cause: error }) // Convert SyntaxError to Error.
+      }
+      throw error
     }
   }
 
-  async readStdin (): Promise<string> {
-    return new Promise((resolve) => {
-      let s = ''
-      process.stdin.setEncoding('utf8')
-      process.stdin.on('data', (data) => { s += data })
-      process.stdin.on('end', () => { resolve(s) })
-    })
-  }
 
-  async main () {
+  async main (): Promise<void> {
     try {
       this.parseArguments()
       this.jsonFormatter = new JsonFormatter(this.options)
       if (this.fileList.length === 0 && this.stringList.length === 0) {
-        this.fileList = ['-']
+        this.fileList.push('-')
       }
       this.n = 0
-      this.stringList.forEach((s) => {
+      for (const s of this.stringList) {
         try {
           this.processString(s)
-        } catch (error) {
-          this.error(error as Error)
-        }
-      })
-      this.fileList.forEach(async (file) => {
+        } catch (error) { this.error(error) }
+      }
+      await this.fileList.reduce(async (previous, file) => {
+        await previous
         try {
           const s = file === '-'
-            ? await this.readStdin()
+            ? await readStdin()
             : file.endsWith('.gz')
               ? (await gunzip(await readFile(file))).toString('utf8')
               : await readFile(file, 'utf8')
           this.processString(s)
-        } catch (error) {
-          this.error(error as Error)
-        }
-      })
-    } catch (error) {
-      await this.fatal(error as Error)
-    }
+        } catch (error) { this.error(error) }
+      }, Promise.resolve())
+    } catch (error) { this.error(error) }
   }
 }
 
