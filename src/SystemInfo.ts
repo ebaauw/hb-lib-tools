@@ -253,34 +253,34 @@ class SystemInfo {
 
   /** Initialise SystemInfo instance.
     */
-  async init () {
+  async init (): Promise<void> {
     switch (process.platform) {
       case 'linux':
         if (await this.existsFile('/etc/synoinfo.conf')) {
           try {
             this.hwInfo = await this.getSynoInfo()
-          } catch (error) { this.warn(error as Error) }
+          } catch (error) { this.warn(error) }
           try {
             this.osInfo = await this.getDsmInfo()
-          } catch (error) { this.warn(error as Error) }
+          } catch (error) { this.warn(error) }
         } else {
           if (['arm', 'arm64'].includes(process.arch)) {
             try {
               this.hwInfo = await this.getRpiInfo()
-            } catch (error) { this.warn(error as Error) }
+            } catch (error) { this.warn(error) }
           }
           try {
             this.osInfo = await this.getPiOsInfo()
-          } catch (error) { this.warn(error as Error) }
+          } catch (error) { this.warn(error) }
         }
         break
       case 'darwin':
         try {
           this.hwInfo = await this.getMacInfo()
-        } catch (error) { this.warn(error as Error) }
+        } catch (error) { this.warn(error) }
         try {
           this.osInfo = await this.getMacOsInfo()
-        } catch (error) { this.warn(error as Error) }
+        } catch (error) { this.warn(error) }
         break
       default:
         break
