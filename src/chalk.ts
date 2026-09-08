@@ -13,9 +13,10 @@
   * @module
   */
 
-import chalk, { ChalkInstance } from 'chalk'
+export type { ChalkInstance } from 'chalk'
+
+import chalk from 'chalk'
 
 chalk.level = 2 // Force chalk to use 256 colours, even when not running in a terminal.
 
-export type { ChalkInstance }
 export { chalk }
