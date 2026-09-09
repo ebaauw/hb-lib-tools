@@ -34,7 +34,7 @@ class MdnsClient extends EventEmitter<Events> {
     /** Function to filter mDNS messages.
       * Default is to accept all messages.
       */
-    filter?(message: Bonjour.Service): boolean,
+    filter?: (message: Bonjour.Service) => boolean,
     /** Logger instance to log to. */
     logger?: Logger,
     /** Filter on mDNS service type.
@@ -48,7 +48,7 @@ class MdnsClient extends EventEmitter<Events> {
   }) {
     super()
     this.options = {
-      filter: params.filter?.bind(this) ?? (() => true ),
+      filter: params.filter ?? (() => true ),
       host: '224.0.0.251:5353',
       logger: params.logger,
       serviceType: params.serviceType ?? 'hap',
@@ -128,7 +128,7 @@ class MdnsClient extends EventEmitter<Events> {
       this.options.timeout, this.options.serviceType
     )
     this.listen()
-    await timeout(this. options.timeout * 1000) // eslint-disable-line @typescript-eslint/no-magic-numbers -- s -> ms
+    await timeout(this. options.timeout * 1000)
     if (noListener) {
       this.stopListen()
     }
