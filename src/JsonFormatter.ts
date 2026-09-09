@@ -10,6 +10,9 @@
 import type { integer, json, jsonMap } from 'hb-lib-tools'
 import type { path } from 'hb-lib-tools/OptionParser'
 
+import { isJson } from 'hb-lib-tools'
+import { toPath } from 'hb-lib-tools/OptionParser'
+
 /** {@link JsonFormatter} options. */
 export interface Options {
   /** Output _path_`:`_value_ in plain text instead of JSON.
@@ -111,7 +114,7 @@ class JsonFormatter {
   ) {
     this.options = {
       ascii: options.ascii ?? false,
-      fromPath: options.fromPath ?? '/',
+      fromPath: options.fromPath === undefined ? '/' : toPath(options.fromPath, { key: 'options.fromPath' }),
       jsonArray: options.jsonArray ?? false,
       joinKeys: options.joinKeys ?? false,
       keysOnly: options.keysOnly ?? false,
@@ -224,37 +227,40 @@ class JsonFormatter {
 
   /** Transform javascript value into a formatted JSON string.
     *
-    * @return The formatted JSON string.
+    * @return The formatted JSON string or `undefined` if the input is not valid JSON.
     */
   stringify (
     /* The JavaScript value. */
-    value: json
-  ): string | null {
-    let val = value
+    json: unknown
+  ): string | undefined {
+    if (!isJson(json)) {
+      return undefined
+    }
+    let value: json = json
     if (this.options.fromPath !== '/') {
       const a = this.options.fromPath.slice(1).split('/')
       for (const key of a) {
-        if (typeof val === 'object' && val != null) {
-          val = Array.isArray(val) ? val[Number(key)] : val[key]
+        if (typeof value === 'object' && value != null) {
+          value = Array.isArray(value) ? value[Number(key)] : value[key]
         } else {
-          return null
+          return undefined
         }
       }
     }
 
     if (!this.options.jsonArray) {
-      return this.#format(val)
+      return this.#format(value)
     }
     
     if (this.options.ascii) {
-      const array = this.#stringMap(val, (keys: string[], value: json) => {
+      const array = this.#stringMap(value, (keys: string[], value: json) => {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return this.#format(value) }
         return `/${keys.join('/')}:${this.#format(value)}`
       })
       return array.join('\n')
     }
-    const array = this.#map(val, (keys: string[], value: json) => {
+    const array = this.#map(value, (keys: string[], value: json) => {
       if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
