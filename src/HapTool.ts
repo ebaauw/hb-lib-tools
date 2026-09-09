@@ -13,6 +13,7 @@
 import type { integer, jsonMap } from 'hb-lib-tools'
 import type { Mode } from 'hb-lib-tools/CommandLineTool'
 
+import { isJsonMap } from 'hb-lib-tools'
 import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLineTool'
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
@@ -107,12 +108,17 @@ class HapTool extends CommandLineTool {
       if (this.options.mode != null) {
         this.setOptions({ mode: this.options.mode })
         this.client.on('serviceUp', (address, obj) => {
-          this.log('found %j at %s: %s', obj.name, address, this.jsonFormatter.stringify(obj))
+          if (isJsonMap(obj)) {
+            this.log('found %j at %s: %s', obj.name, address, this.jsonFormatter.stringify(obj))
+          }
         })
         this.client.listen()
         return
       }
       const result = await this.client.search()
+      if (!isJsonMap(result)) {
+        throw new Error('invalid result: %j', result)
+      }
       this.print(this.jsonFormatter.stringify(result))
     } catch (error) {
       this.error(error)
