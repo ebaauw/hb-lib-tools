@@ -241,7 +241,7 @@ export abstract class CommandLineTool implements Logger {
 
   // Do the heavy lifting for debug(), error(), fatal(), log(), and warn(),
   // taking into account the options, and errors vs exceptions.
-  #log (params: { noLabel?: boolean, stdout?: boolean, label?: string, chalk?(msg: string): string }, ...args: unknown[]): void {
+  #log (params: { noLabel?: boolean, stdout?: boolean, label?: string, chalk?: (msg: string) => string }, ...args: unknown[]): void {
     const noLabel = params.noLabel ?? false
     const output = (params.stdout ?? false) ? process.stdout : process.stderr
     let timestamp = ''
@@ -269,7 +269,7 @@ export abstract class CommandLineTool implements Logger {
 
     // Handle newline.
     if (message.endsWith('\\c')) {
-      message = message.substring(0, message.length - 2) // eslint-disable-line @typescript-eslint/no-magic-numbers -- Remove trailing '\c'
+      message = message.substring(0, message.length - 2)
     } else {
       message += '\n'
     }
@@ -283,7 +283,8 @@ export abstract class CommandLineTool implements Logger {
         message = `${this._name}: ${message}`
       }
       if (this._options.timestamp) {
-        timestamp = `[${String(new Date()).substring(0, 24)}] ` // eslint-disable-line @typescript-eslint/no-magic-numbers -- Remove time zone
+        // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- Remove time zone
+        timestamp = `[${String(new Date()).substring(0, 24)}] `
         if (this._options.chalk) {
           timestamp = chalk.white(timestamp)
         }
@@ -308,7 +309,7 @@ export class CommandLineParser {
   private readonly _callbacks: {
     flags: Record<string, (key: string) => void>
     options: Record<string, (value: string, key: string) => void>
-    parameters: Array<{ key: string, callback(value: string): void, optional: boolean }>,
+    parameters: Array<{ key: string, callback: (value: string) => void, optional: boolean }>,
     remaining: ((values: string[]) => void) | null
   }
 
@@ -503,7 +504,8 @@ export class CommandLineParser {
     * @throws {@link UsageError} in case of invalid command-line parameters.
     */
   parse (
-    wordList: string[] = process.argv.slice(2) // eslint-disable-line @typescript-eslint/no-magic-numbers -- Skip node executable and javascript file
+    // process.argv[0] is the node executable, process.argv[1] is the javascript file
+    wordList: string[] = process.argv.slice(2)
   ): void {
     let wordIndex = 0
 
@@ -545,7 +547,7 @@ export class CommandLineParser {
         break
       }
       if (word[1] === '-') {
-        handleWord(word.substring(2), true) // eslint-disable-line @typescript-eslint/no-magic-numbers -- Skip '--'
+        handleWord(word.substring(2), true)
         continue
       }
       let charIndex = 1
