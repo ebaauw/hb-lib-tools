@@ -124,17 +124,17 @@ import { toInt, toIntString } from 'hb-lib-tools/OptionParser'
   */
 export interface Logger {
   /** Log error message. */
-  error (format: unknown, ...args: unknown[]): void,
+  error: (format: unknown, ...args: unknown[]) => void,
   /** Log warning message. */
-  warn (format: unknown, ...args: unknown[]): void,
+  warn: (format: unknown, ...args: unknown[]) => void,
   /** Log regular log message. */
-  log (format: unknown, ...args: unknown[]): void,
+  log: (format: unknown, ...args: unknown[]) => void,
   /** Log debug message. */
-  debug (format: unknown, ...args: unknown[]): void,
+  debug: (format: unknown, ...args: unknown[]) => void,
   /** Log verbose debug message. */
-  vdebug (format: unknown, ...args: unknown[]): void,
+  vdebug: (format: unknown, ...args: unknown[]) => void,
   /** Log very verbose debug message. */
-  vvdebug (format: unknown, ...args: unknown[]): void,
+  vvdebug: (format: unknown, ...args: unknown[]) => void,
 }
 
 interface SystemError extends Error {
@@ -142,7 +142,7 @@ interface SystemError extends Error {
   path?: string
   dest?: string
   address?: string
-  port?: number
+  port?: integer
   hostname?: string
   syscall?: string
   code?: string
