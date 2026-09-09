@@ -100,7 +100,7 @@ export interface Options {
   /** Certificate authority for the server. */
   ca?: string | string[],
   /** Custom function to check the server identity. */
-  checkServerIdentity?(hostname: string, cert: PeerCertificate): Error | undefined,
+  checkServerIdentity?: (hostname: string, cert: PeerCertificate) => Error | undefined,
   /** Default HTTP headers for each request. */
   headers: Record<string, string>,
   /** Server hostname and port. */
@@ -135,7 +135,7 @@ export interface Options {
     */
   validStatusCodes: integer[],
   /** Parser for XML response body. */
-  xmlParser?(xml: string): Promise<jsonMap>
+  xmlParser?: (xml: string) => Promise<jsonMap>
 }
 
 /** HTTP client. */
