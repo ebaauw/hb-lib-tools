@@ -143,7 +143,7 @@ export function toRgb (r: number, g: number, b: number): rgb {
  */
 export type rgbString = string & {}
 
-const rgbStringPattern = /^#(?<r>[0-9a-fA-F]{2})(?<g>[0-9a-fA-F]{2})(?<b>[0-9a-fA-F]{2})$/v
+const rgbStringPattern = /^#(?<rr>[0-9a-fA-F]{2})(?<gg>[0-9a-fA-F]{2})(?<bb>[0-9a-fA-F]{2})$/
 
 /** Convert {@link Colour!rgbString rgbString} to {@link rgb}.
   * @param s - The RGB colour as string.
@@ -155,9 +155,11 @@ export function rgbStringToRgb (s: rgbString): rgb {
   if (a?.groups == null) {
     throw new TypeError('not a valid RGB colour string')
   }
-  const r = toInt(`0x${a.groups.r}`, { key: 'r' }) / 0xFF
-  const g = toInt(`0x${a.groups.g}`, { key: 'g' }) / 0xFF
-  const b = toInt(`0x${a.groups.b}`, { key: 'b' }) / 0xFF
+  const { groups } = a
+  const { rr, gg, bb } = groups
+  const r = toInt(`0x${rr}`, { key: 'r' }) / 0xFF
+  const g = toInt(`0x${gg}`, { key: 'g' }) / 0xFF
+  const b = toInt(`0x${bb}`, { key: 'b' }) / 0xFF
   return toRgb(r, g, b)
 }
 
@@ -391,7 +393,7 @@ export function hsvToXy (hsv: hsv, gamut: gamut = defaultGamut): xy {
   * @return The closest matching sRGB colour.
   */
 export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
-  let r: number, g: number, b: number // eslint-disable-line @typescript-eslint/init-declarations -- set later
+  let r: number, g: number, b: number
 
   // Inverse Gamma correction (sRGB Companding).
   function compand (v: number): number {
@@ -450,7 +452,7 @@ export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
   */
 export function ctToXy (ct: integer): xy {
   const kelvin = 1000000 / ct
-  let x, y // eslint-disable-line @typescript-eslint/init-declarations -- set later
+  let x: number, y: number
 
   if (kelvin < 4000) {
     x = 11790 +
