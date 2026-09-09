@@ -39,24 +39,18 @@ function newTypeError (message: string, options: { key?: string, userInput?: boo
   return (options.userInput ?? false) ? new UserInputError(m) : new TypeError(m)
 }
 
-/** Callback function type. */
-export interface CallBackFunction {
-  (value: unknown): void
-  list?: Record<string, unknown>
-}
-
 const patterns = {
-  host: /^(?:\[(?<ipv6>.+)\]|(?<hostname>[^:]+))(?::(?<port>[0-9]{1,5}))?$/v,
-  hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9\-]*[a-zA-Z0-9])?)*$/v,
-  int: /^\s*([+-]?)([0-9]+(?:\.0*)?)\s*$/v,
-  intBin: /^\s*(?<sign>[+-]?)(?:0[bB])(?<digits>[01]+)\s*$/v,
-  intOct: /^\s*(?<sign>[+-]?)(?:0[oO])(?<digits>[0-8]+)\s*$/v,
-  intHex: /^\s*([+-]?)(?:0[xX])([0-9A-Fa-f]+)\s*$/v,
-  ipv4: /^\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]\.(?:\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]){3}$/v,
-  number: /^\s*[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/v,
-  mac: /^([0-9a-fA-F]{1,2})([:-]([0-9a-fA-F]{1,2})){5}$/v,
-  mac64: /^([0-9a-fA-F]{1,2})([:-]([0-9a-fA-F]{1,2})){7}$/v,
-  uuid: /^(?:[0-9a-fA-F]{8})-(?:[0-9a-fA-F]{4})-(?:[1-5][0-9a-fA-F]{3})-(?:[89abAB][0-9a-fA-F]{3})-(?:[0-9a-fA-F]{12})$/v
+  host: /^(?:\[(?<ipv6>.+)\]|(?<hostname>[^:]+))(?::(?<port>[0-9]{1,5}))?$/,
+  hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
+  int: /^\s*(?:[+-]?)(?:[0-9]+(?:\.0*)?)\s*$/,
+  intBin: /^\s*(?<sign>[+-]?)(?:0[bB])(?<digits>[01]+)\s*$/,
+  intOct: /^\s*(?<sign>[+-]?)(?:0[oO])(?<digits>[0-8]+)\s*$/,
+  intHex: /^\s*(?<sign>[+-]?)(?:0[xX])(?<digits>[0-9A-Fa-f]+)\s*$/,
+  ipv4: /^\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]\.(?:\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]){3}$/,
+  number: /^\s*[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/,
+  mac: /^[0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){5}$/,
+  mac64: /^[0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){7}$/,
+  uuid: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
 }
 
 function validateOptions (options: { key?: unknown, nonEmpty?: unknown, userInput?: unknown } = {}): void {
@@ -161,7 +155,7 @@ export function toInt (
     throw newRangeError('options.max: smaller than options.min')
   }
 
-  let i: integer // eslint-disable-line @typescript-eslint/init-declarations -- initial value not used
+  let i: integer
   if (value == null) {
     throw newTypeError('missing integer value', options)
   }
@@ -228,7 +222,7 @@ export function toIntString (
   } = {}): string {
   validateOptions(options)
   const radix = options.radix === undefined ? 10 : toInt(options.radix, { key: 'options.radix', min: 2, max: 36 })
-  const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
+  const length: number = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
 
   const i = toInt(value, options)
   if (i < 0 && radix !== 10) {
@@ -273,19 +267,20 @@ export function toNumber (
   if (max < min) {
     throw newRangeError('options.max: smaller than options.min')
   }
+  let v = value
 
   let n: number
-  if (value == null) {
+  if (v == null) {
     throw newTypeError('missing number value', options)
   }
-  if (typeof value === 'number') {
-    value = '' + value
+  if (typeof v === 'number') {
+    v = `${v}`
   }
-  if (typeof value === 'boolean') {
-    n = value ? 1 : 0
-  } else if (typeof value === 'string') {
-    if (patterns.number.test(value)) {
-      n = parseFloat(value)
+  if (typeof v === 'boolean') {
+    n = v ? 1 : 0
+  } else if (typeof v === 'string') {
+    if (patterns.number.test(v)) {
+      n = parseFloat(v)
     } else {
       throw newTypeError('not a number', options)
     }
@@ -327,14 +322,15 @@ export function toNumberString (
 
   let n = toNumber(value, options)
   if (decimals != null) {
-    const factor = Math.pow(10, decimals)
+    const factor = 10 ** decimals
     n = (Math.round(n * factor) / factor)
   }
   const s = n.toString(10)
   if (s.length > length) {
     return s
   }
-  return ('                                ' + s).slice(-length)
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-unary-minus -- integer is NumberLike
+  return (`                                ${s}`).slice(-length)
 }
 
 /** Casts input value to string, optionally non-empty.
@@ -359,23 +355,26 @@ export function toString (
     userInput?: boolean
   } = {}): string {
   validateOptions(options)
-  if (value == null) {
-    if (options.nonEmpty) {
+  const nonEmpty = options.nonEmpty ?? false
+  let v = value
+
+  if (v == null) {
+    if (nonEmpty) {
       throw newTypeError('missing string value', options)
     } else {
       return ''
     }
   }
-  if (typeof value === 'boolean' || typeof value === 'number') {
-    value = '' + value
+  if (typeof v === 'boolean' || typeof v === 'number') {
+    v = String(v)
   }
-  if (typeof value !== 'string') {
+  if (typeof v !== 'string') {
     throw newTypeError('not a string', options)
   }
-  if (options.nonEmpty && value === '') {
+  if (nonEmpty && v === '') {
     throw newRangeError('not a non-empty string', options)
   }
-  return value
+  return v
 }
 
 /** Casts input value to {@link Host}.
@@ -395,30 +394,30 @@ export function toHost (
   validateOptions(options)
   const response: Host = { hostname: '' }
   const s = toString(value, { nonEmpty: true, ...options })
-  const list = patterns.host.exec(s)
-  if (list == null) {
+  const a = patterns.host.exec(s)
+  if (a?.groups == null) {
     throw newRangeError('not a valid host', options)
   }
-  if (list[1] != null) {
-    if (!isIPv6(list[1])) {
-      throw newRangeError(`[${list[1]}]: not a valid IPv6 address`, options)
+  const { groups } = a
+  const { ipv6, ipv4, hostname, port } = groups
+  if (ipv6 !== '') {
+    if (!isIPv6(ipv6)) {
+      throw newRangeError(`[${ipv6}]: not a valid IPv6 address`, options)
     }
-    response.hostname = '[' + list[1] + ']'
-  } else if (isIPv4(list[2])) {
-    response.hostname = list[2].split('.').map((byte) => {
-      return parseInt(byte)
-    }).join('.')
-  } else if (patterns.hostname.test(list[2])) {
-    response.hostname = list[2]
+    response.hostname = `[${ipv6}]`
+  } else if (isIPv4(ipv4)) {
+    response.hostname = ipv4.split('.').map((byte) => parseInt(byte, 10)).join('.')
+  } else if (patterns.hostname.test(hostname)) {
+    response.hostname = hostname
   } else {
-    throw newRangeError(`${list[2]}: not a valid hostname or IPv4 address`, options)
+    throw newRangeError(`${hostname}: not a valid hostname or IPv4 address`, options)
   }
-  if (list[3] != null) {
-    const port = parseInt(list[3], 10)
-    if (port < 0 || port > 65535) {
-      throw newRangeError(`${port}: not a valid port`, options)
+  if (port !== '') {
+    const p = parseInt(port, 10)
+    if (p < 0 || p > 65535) {
+      throw newRangeError(`${p}: not a valid port`, options)
     }
-    response.port = port
+    response.port = p
   }
   return response
 }
@@ -438,7 +437,7 @@ export function toHostString (
     userInput?: boolean
   } = {}): host {
   const { hostname, port } = toHost(value, options)
-  return hostname + (port != null ? ':' + port : '')
+  return hostname + (port == null ? '' : `${port}`)
 }
 
 /** Casts input value to {@link path}.
@@ -457,7 +456,7 @@ export function toPath (
   } = {}): path {
   const path = toString(value, { nonEmpty: true, ...options })
 
-  if (path[0] !== '/') {
+  if (!path.startsWith('/')) {
     throw newRangeError(`${path}: not a valid path`, options)
   }
   return posix.normalize(path)
@@ -520,7 +519,7 @@ export function toObject (
   if (typeof value !== 'object' || value.constructor.name !== 'Object') {
     throw newTypeError('not an object', options)
   }
-  return value as object
+  return value
 }
 
 // Do we still need toFunction(), toAsyncFunction(), toClass(), and toInstance()?
@@ -549,6 +548,7 @@ export function toFunction (
     typeof value === 'function' && value.prototype == null &&
     value.constructor.name === 'Function'
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
     return value as (...args: unknown[]) => unknown
   }
   throw newTypeError('not a function', options)
@@ -577,6 +577,7 @@ export function toAsyncFunction (
     typeof value === 'function' &&
     value.constructor.name === 'AsyncFunction'
   ) {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
     return value as (...args: unknown[]) => Promise<unknown>
   }
   throw newTypeError('not an async function', options)
@@ -614,13 +615,14 @@ export function toClass (
   ) {
     throw newTypeError(`not a subclass of ${SuperClass.name}`, options)
   }
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
   return value as new (...args: unknown[]) => unknown
 }
 
 /** Casts input value to class instance.
   *
   * Valid values are:
-  * - A class instance or a proper function.
+  * - A class instance.
   * @return The input value as Class.
   * @throws On invalid input.
   */
@@ -649,14 +651,14 @@ export function toInstance (
   if (value == null) {
     return null
   }
-  if (typeof value === 'object' && value.constructor.name != null) {
+  if (typeof value === 'object' && value.constructor.name !== 'Object') {
     return value
   }
   throw newTypeError('not an instance', options)
 }
 
 /** {@link OptionParser} events. */
-export interface  Events {
+export interface Events {
   /** Emitted when {@link OptionParser.parse parse()} encounters a user input error.
     * @event
     * @param error - The user input error.
@@ -664,33 +666,38 @@ export interface  Events {
   userInputError: [error: UserInputError]
 }
 
+
+/** Callback function type. */
+export type ValidationFunction = (value: unknown) => void
+
 /** Parser and validator for options and other parameters. */
 class OptionParser extends EventEmitter<Events> {
   _object: Record<string, unknown>
   _userInput: boolean
-  _callbacks: Record<string, CallBackFunction>
+  _callbacks: Record<string, (value: unknown) => void>
+  _enumValues: Record<string, Record<string, ((value: string) => void) | null>>
 
   /** Creates a new OptionParser instance
     *
     * @param {boolean} [userInput=false] - Options were input by user.
     */
-  constructor (object: Record<string, unknown> = {}, userInput: boolean = false) {
+  constructor (object: Record<string, unknown> = {}, userInput = false) {
     super()
     this._object = object
     this._userInput = userInput
     this._callbacks = {}
+    this._enumValues = {}
   }
 
   /** Checks that key is valid and not yet in use. */
-  #toKey (
+  #checkKey (
     /** The key. */
     key: string
-  ): string {
-    key = toString(key, { key: 'key', nonEmpty: true })
-    if (this._callbacks[key] != null) {
-      throw new SyntaxError(`${key}: duplicate key`)
+  ): void {
+    const k = toString(key, { key: 'key', nonEmpty: true })
+    if (k in this._callbacks) {
+      throw new SyntaxError(`${k}: duplicate key`)
     }
-    return key
   }
 
   /** Defines a key that takes an array as value. */
@@ -698,7 +705,7 @@ class OptionParser extends EventEmitter<Events> {
     /** The key. */
     key: string
   ): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value) => {
       this._object[key] = toArray(value, { key, userInput: this._userInput })
@@ -711,7 +718,7 @@ class OptionParser extends EventEmitter<Events> {
     /** The key. */
     key: string
   ): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value) => {
       this._object[key] = toAsyncFunction(value, { key })
@@ -724,7 +731,7 @@ class OptionParser extends EventEmitter<Events> {
     /** The key. */
     key: string
   ): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value) => {
       this._object[key] = toBool(value, { key, userInput: this._userInput })
@@ -737,18 +744,16 @@ class OptionParser extends EventEmitter<Events> {
     /** The key. */
     key: string
   ): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
+    this._enumValues[key] = {}
     this._callbacks[key] = (value) => {
-      const s = toString(value, { key, nonEmpty: true, userInput: this._userInput })
-      const callback: CallBackFunction = this._callbacks[key].list![s] as CallBackFunction
-      if (callback == null) {
-        throw newRangeError(`${s}: invalid ${key}`, { userInput: this._userInput })
+      const v = toString(value, { key, nonEmpty: true, userInput: this._userInput })
+      if (!(v in this._enumValues[key])) {
+        throw newRangeError(`${key}: ${v}: invalid value`, { userInput: this._userInput })
       }
-      this._object[key] = value
-      callback(value)
+      this._enumValues[key][v]?.(v)
     }
-    this._callbacks[key].list = {}
     return this
   }
 
@@ -759,14 +764,16 @@ class OptionParser extends EventEmitter<Events> {
     /** The enum value. */
     value: string,
     /** Function to call when enum value is present. */
-    callback = () => {}
+    callback?: (value: string) => void
   ): this {
-    key = toString(key, { key, nonEmpty: true })
-    const s = toString(value, { key: 'value', nonEmpty: true })
-    toFunction(this._callbacks[key], { key })
-    callback = toFunction(callback, { key: 'callback' })
-
-    this._callbacks[key].list![s] = callback
+    if (!(key in this._enumValues)) {
+      throw newRangeError(`${key}: not an enum key`)
+    }
+    const v = toString(value, { key, nonEmpty: true })
+    if (v in this._enumValues[key]) {
+      throw new SyntaxError(`${key}: ${v}: duplicate value`)
+    }
+    this._enumValues[key][v] = callback ?? null
     return this
   }
 
@@ -775,7 +782,7 @@ class OptionParser extends EventEmitter<Events> {
     /** The key. */
     key: string
   ): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value) => {
       this._object[key] = toFunction(value, { key })
@@ -786,14 +793,14 @@ class OptionParser extends EventEmitter<Events> {
   /** Defines a key that takes a hostname[:port] as value. */
   hostKey (
     /** The key.  Default: 'host'. */
-    key: string = 'host',
+    key = 'host',
     options: {
       /** The key for the hostname.  Default: 'hostname'. */
       hostnameKey?: string,
       /** The key for the port.  Default: 'port'. */
       portKey?: string
     } = {}): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
     const hostnameKey = options.hostnameKey === undefined ? 'hostname' : toString(options.hostnameKey, { key: 'hostnameKey', nonEmpty: true })
     const portKey = options.portKey === undefined ? 'port' : toString(options.portKey, { key: 'portKey', nonEmpty: true })
 
@@ -809,7 +816,7 @@ class OptionParser extends EventEmitter<Events> {
 
   /** Defines a key that takes an instance value */
   instanceKey (key: string, Class?: unknown): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
     const C = Class === undefined ? undefined : toClass(Class, { key: 'Class' })
 
     this._callbacks[key] = (value) => {
@@ -830,9 +837,9 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   intKey (key: string, min?: integer, max?: integer): this {
-    key = this.#toKey(key)
-    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'options.min' })
-    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'options.max' })
+    this.#checkKey(key)
+    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'options.min' }) // eslint-disable-line no-param-reassign -- TODO
+    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'options.max' }) // eslint-disable-line no-param-reassign -- TODO
     if (max < min) {
       throw newRangeError('options.max: smaller than options.min')
     }
@@ -852,16 +859,17 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   listKey (key: string): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value) => {
-      const array = []
-      const map: { [key: string]: boolean } = {}
-      for (const element of toArray(value, { key, userInput: this._userInput })) {
+      const array: string[] = []
+      const map: Record<string, boolean> = {}
+      const a = toArray(value, { key, userInput: this._userInput })
+      a.forEach((element, index) => {
         try {
-          const e = toString(element, { key: `${key}.${element}`, nonEmpty: true, userInput: this._userInput })
+          const e = toString(element, { key: `${key}.${index}`, nonEmpty: true, userInput: this._userInput })
           if (map[e]) {
-            throw newSyntaxError(`duplicate key: ${e}`, { key: `${key}.${element}`, userInput: this._userInput })
+            throw newSyntaxError(`duplicate key: ${e}`, { key: `${key}.${index}`, userInput: this._userInput })
           }
           map[e] = true
           array.push(e)
@@ -872,7 +880,7 @@ class OptionParser extends EventEmitter<Events> {
             throw error
           }
         }
-      }
+      })
       this._object[key] = array
     }
     return this
@@ -890,9 +898,9 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   numberKey (key: string, min?: number, max?: number): this {
-    key = this.#toKey(key)
-    min = min == null ? -Infinity : toNumber(min, { key: 'min' })
-    max = max == null ? Infinity : toNumber(max, { key: 'max' })
+    this.#checkKey(key)
+    min = min == null ? -Infinity : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
+    max = max == null ? Infinity : toNumber(max, { key: 'max' }) // eslint-disable-line no-param-reassign -- TODO
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
@@ -912,7 +920,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   objectKey (key: string): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value: unknown) => {
       this._object[key] = toObject(value, { key, userInput: this._userInput })
@@ -929,7 +937,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   pathKey (key: string): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value: unknown) => {
       this._object[key] = toPath(value, { key, userInput: this._userInput })
@@ -947,7 +955,7 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {SyntaxError} On duplicate key.
     */
   stringKey (key: string, nonEmpty = false): this {
-    key = this.#toKey(key)
+    this.#checkKey(key)
 
     this._callbacks[key] = (value: unknown) => {
       this._object[key] = toString(value, { key, nonEmpty, userInput: this._userInput })
@@ -965,13 +973,12 @@ class OptionParser extends EventEmitter<Events> {
     * @throws {UserInputError} On error, when value was input by user.
     */
   parse (options: Record<string, unknown>): Record<string, unknown> {
-    for (const key in options) {
+    Object.keys(options).forEach(key => {
       try {
-        const value = options[key]
-        if (this._callbacks[key] == null) {
+        if (!( key in this._callbacks[key])) {
           throw newSyntaxError('invalid key', { key, userInput: this._userInput })
         }
-        this._callbacks[key](value)
+        this._callbacks[key](options[key])
       } catch (error) {
         if (error instanceof UserInputError) {
           this.emit('userInputError', error)
@@ -979,7 +986,7 @@ class OptionParser extends EventEmitter<Events> {
           throw error
         }
       }
-    }
+    })
     return this._object
   }
 }
