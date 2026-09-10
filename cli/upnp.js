@@ -7,4 +7,4 @@
 
 import { UpnpTool } from 'hb-lib-tools/UpnpTool'
 
-new UpnpTool().main()
+await new UpnpTool().main()
