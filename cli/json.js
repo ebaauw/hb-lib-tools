@@ -7,4 +7,4 @@
 
 import { JsonTool } from 'hb-lib-tools/JsonTool'
 
-new JsonTool().main()
+await new JsonTool().main()
