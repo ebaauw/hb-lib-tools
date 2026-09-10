@@ -19,7 +19,7 @@ function convert (rawMessage: string): Record<string, string> {
     message.status = lines.at(0)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- lines.at(0) != null
     for (const line of lines) {
       const fields = line.split(': ')
-      if (fields.length === 2) { // eslint-disable-line @typescript-eslint/no-magic-numbers -- key: value
+      if (fields.length === 2) {
         message[fields.at(0)!.toLowerCase()] = fields.at(1)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- fields.length === 2
       }
     }
@@ -58,7 +58,7 @@ class UpnpClient extends EventEmitter<Events> {
     /** Function to filter UPnP messages.
       * Default is to accept all messages.
       */
-    filter?(message: Record<string, string>): boolean,
+    filter?: (message: Record<string, string>) => boolean,
     logger?: Logger,
     /** Timeout (in seconds) for {@link UpnpClient.search search()}
       * to listen for responses.
@@ -210,7 +210,7 @@ class UpnpClient extends EventEmitter<Events> {
     socket.send(
       request, 0, request.length, this.options.port, this.options.hostname
     )
-    await timeout(this.options.timeout * 1000) // eslint-disable-line @typescript-eslint/no-magic-numbers -- s to ms
+    await timeout(this.options.timeout * 1000)
     this.debug('upnp: search done')
     socket.close()
     await once(socket, 'close')
