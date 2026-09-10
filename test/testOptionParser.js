@@ -20,9 +20,7 @@ import {
 /** Test parameters.
   * @typedef
   * @property {*} v - The value to test.
-  * @property {?*} p1 - The options to test.
-  * @property {?*} p2 - The options to test.
-  * @property {?*} p3 - The options to test.
+  * @property {?*} p - The options to test.
   * @property {?*} r - The test result should be strictEqual to `r`.
   * @property {?*} s - The test result should be deepStrictEqual to `s`.
   * @property {?Error} e - The should throw e.
@@ -493,6 +491,20 @@ describe('OptionParser', () => {
   describe('.toInstance()', () => {
     test(toInstance, [
       // Standard values.
+      { e: new TypeError('key: missing instance value') },
+      { v: null, e: new TypeError('key: missing instance value') },
+      { v: bool, e: new TypeError('key: not an instance') },
+      { v: int, e: new TypeError('key: not an instance') },
+      { v: num, e: new TypeError('key: not an instance') },
+      { v: str, e: new TypeError('key: not an instance') },
+      { v: '', e: new TypeError('key: not an instance') },
+      { v: array, e: new TypeError('key: not an instance') },
+      { v: object, e: new TypeError('key: not an instance') },
+      { v: f, e: new TypeError('key: not an instance') },
+      { v: g, e: new TypeError('key: not an instance') },
+      { v: a, s: a },
+      { v: A, e: new TypeError('key: not an instance') },
+
       { p: { Class: A }, e: new TypeError('key: missing instance of A value') },
       { v: null, p: { Class: A }, e: new TypeError('key: missing instance of A value') },
       { v: bool, p: { Class: A }, e: new TypeError('key: not an instance of A') },
