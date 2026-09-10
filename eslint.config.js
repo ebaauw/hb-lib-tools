@@ -5,7 +5,7 @@ import love from 'eslint-config-love'
 export default [
   {
     ...love,
-    files: ['**/*.ts', '**/*.js'],
+    files: ['**/*.ts', '**/*.js']
   },
   {
     ignores: ['dist/**', 'doc/**', 'test/**', 'node_modules/**']
@@ -20,7 +20,7 @@ export default [
       eqeqeq: ['error', 'smart'],
       indent: ['error', 2, { SwitchCase: 1 }],
       'linebreak-style': ['error', 'unix'],
-      'max-len': ['warn', 160],
+      'max-len': ['warn', { code: 160 }],
       'max-lines': ['warn', { max: 1000 }],
       'no-empty': ['error', { allowEmptyCatch: true }],
       'no-use-before-define': 'warn',
@@ -30,7 +30,9 @@ export default [
       'require-unicode-regexp': 'off',
       semi: ['error', 'never'],
       '@typescript-eslint/init-declarations': 'off',
-      '@typescript-eslint/no-magic-numbers': ['error', { ignore: [-1, 0, 1, 2, 8, 10, 16, 0xFF, 1000, 0xFFFF], ignoreArrayIndexes: true, ignoreDefaultValues: true }],
+      '@typescript-eslint/no-magic-numbers': ['error', {
+        ignore: [-1, 0, 1, 2, 8, 10, 16, 0xFF, 1000, 0xFFFF], ignoreArrayIndexes: true, ignoreDefaultValues: true
+      }],
       '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],
       '@typescript-eslint/no-use-before-define': ['error', { classes: true, enums: true }]
     }
@@ -42,5 +44,16 @@ export default [
     }
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended
+  ...tseslint.configs.recommended,
+  {
+    files: ['eslint.config.js', 'cli/*.js', 'test/*.js'],
+    languageOptions: {
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['eslint.config.js', 'cli/*.js', 'test/*.js']
+        }
+      }
+    }
+  }
+
 ]
