@@ -7,4 +7,4 @@
 
 import { SysinfoTool } from 'hb-lib-tools/SysinfoTool'
 
-new SysinfoTool().main()
+await new SysinfoTool().main()
