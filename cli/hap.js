@@ -7,4 +7,4 @@
 
 import { HapTool } from 'hb-lib-tools/HapTool'
 
-new HapTool().main()
+await new HapTool().main()
