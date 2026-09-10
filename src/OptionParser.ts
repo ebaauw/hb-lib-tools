@@ -47,7 +47,7 @@ const patterns = {
   intOct: /^\s*(?<sign>[+-]?)(?:0[oO])(?<digits>[0-8]+)\s*$/,
   intHex: /^\s*(?<sign>[+-]?)(?:0[xX])(?<digits>[0-9A-Fa-f]+)\s*$/,
   ipv4: /^\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]\.(?:\d{1,2}|[01]\d{2}|2[0-4]\d|25[0-5]){3}$/,
-  number: /^\s*[+-]?(?:(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?|Infinity)\s*$/,
+  number: /^\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\s*$/,
   mac: /^[0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){5}$/,
   mac64: /^[0-9a-fA-F]{1,2}(?:[:-][0-9a-fA-F]{1,2}){7}$/,
   uuid: /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/
@@ -174,17 +174,13 @@ export function toInt (
       if (a?.groups == null) {
         throw newTypeError('not an integer', options)
       }
-      const { groups } = a
-      const { sign, digits } = groups
-      i = parseInt(sign + digits, 8)
+      i = parseInt(a.groups.sign + a.groups.digits, 8)
     } else if (patterns.intBin.test(value)) {
       const a = patterns.intBin.exec(value)
       if (a?.groups == null) {
         throw newTypeError('not an integer', options)
       }
-      const { groups } = a
-      const { sign, digits } = groups
-      i = parseInt(sign + digits, 2)
+      i = parseInt(a.groups.sign + a.groups.digits, 2)
     } else {
       throw newTypeError('not an integer', options)
     }
@@ -262,8 +258,8 @@ export function toNumber (
     userInput?: boolean
   } = {}): number {
   validateOptions(options)
-  const min = options.min === undefined ? -Infinity : toNumber(options.min, { key: 'options.min' })
-  const max = options.max === undefined ? Infinity : toNumber(options.max, { key: 'options.max' })
+  const min = options.min === undefined ? Number.MIN_VALUE: toNumber(options.min, { key: 'options.min' })
+  const max = options.max === undefined ? Number.MIN_VALUE : toNumber(options.max, { key: 'options.max' })
   if (max < min) {
     throw newRangeError('options.max: smaller than options.min')
   }
@@ -398,21 +394,22 @@ export function toHost (
   if (a?.groups == null) {
     throw newRangeError('not a valid host', options)
   }
-  const { groups } = a
-  const { ipv6, ipv4, hostname, port } = groups
-  if (ipv6 !== '') {
+  const { ipv6, hostname, port } = a.groups as Record<string, string | null>
+  if (ipv6 != null) {
     if (!isIPv6(ipv6)) {
       throw newRangeError(`[${ipv6}]: not a valid IPv6 address`, options)
     }
     response.hostname = `[${ipv6}]`
-  } else if (isIPv4(ipv4)) {
-    response.hostname = ipv4.split('.').map((byte) => parseInt(byte, 10)).join('.')
+  } else if (hostname === null) {
+    throw newRangeError(`${hostname}: not a valid hostname or IPv4 address`, options)
+  } else if (isIPv4(hostname)) {
+    response.hostname = hostname.split('.').map((byte) => parseInt(byte, 10)).join('.')
   } else if (patterns.hostname.test(hostname)) {
     response.hostname = hostname
   } else {
     throw newRangeError(`${hostname}: not a valid hostname or IPv4 address`, options)
   }
-  if (port !== '') {
+  if (port != null) {
     const p = parseInt(port, 10)
     if (p < 0 || p > 65535) {
       throw newRangeError(`${p}: not a valid port`, options)
@@ -437,7 +434,7 @@ export function toHostString (
     userInput?: boolean
   } = {}): host {
   const { hostname, port } = toHost(value, options)
-  return hostname + (port == null ? '' : `${port}`)
+  return hostname + (port == null ? '' : `:${port}`)
 }
 
 /** Casts input value to {@link path}.
@@ -649,9 +646,9 @@ export function toInstance (
     throw newTypeError(`not an instance of ${Class.name}`, options)
   }
   if (value == null) {
-    return null
+    throw newTypeError('missing instance value', options)
   }
-  if (typeof value === 'object' && value.constructor.name !== 'Object') {
+  if (typeof value === 'object' && value.constructor.name !== 'Object' && !Array.isArray(value)) {
     return value
   }
   throw newTypeError('not an instance', options)
@@ -899,8 +896,8 @@ class OptionParser extends EventEmitter<Events> {
     */
   numberKey (key: string, min?: number, max?: number): this {
     this.#checkKey(key)
-    min = min == null ? -Infinity : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
-    max = max == null ? Infinity : toNumber(max, { key: 'max' }) // eslint-disable-line no-param-reassign -- TODO
+    min = min == null ? Number.MIN_VALUE : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
+    max = max == null ? Number.MAX_VALUE : toNumber(max, { key: 'max' }) // eslint-disable-line no-param-reassign -- TODO
     if (max < min) {
       throw newRangeError('max: smaller than min')
     }
