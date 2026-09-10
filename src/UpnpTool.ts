@@ -67,7 +67,7 @@ class UpnpTool extends CommandLineTool {
   jsonFormatter!: JsonFormatter
   options: {
     deviceType: string,
-    filter? (message: Record<string, string>): boolean,
+    filter?: (message: Record<string, string>) => boolean,
     mode?: Mode,
     timeout: number
   }
