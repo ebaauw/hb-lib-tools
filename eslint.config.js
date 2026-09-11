@@ -1,11 +1,29 @@
-import eslint from '@eslint/js'
+import js from '@eslint/js'
+import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
 import love from 'eslint-config-love'
 
-export default [
+const ecmaVersion = 2024
+
+export default defineConfig(
   {
+    files: ['**/*.{js,ts}'],
+    extends: [
+      js.configs.recommended,
+      tseslint.configs.recommended,
+      tseslint.configs.strict,
+      tseslint.configs.stylistic
+    ],
     ...love,
-    files: ['**/*.ts', '**/*.js']
+    languageOptions: {
+      ecmaVersion,
+      sourceType: 'module',
+      parserOptions: {
+        projectService: {
+          allowDefaultProject: ['eslint.config.js', 'cli/*.js', 'test/*.js']
+        }
+      }
+    }
   },
   {
     ignores: ['dist/**', 'doc/**', 'test/**', 'node_modules/**']
@@ -30,30 +48,12 @@ export default [
       'require-unicode-regexp': 'off',
       semi: ['error', 'never'],
       '@typescript-eslint/init-declarations': 'off',
-      '@typescript-eslint/no-magic-numbers': ['error', {
+      '@typescript-eslint/no-magic-numbers': ['warn', {
         ignore: [-1, 0, 1, 2, 8, 10, 16, 0xFF, 1000, 0xFFFF], ignoreArrayIndexes: true, ignoreDefaultValues: true
       }],
       '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],
-      '@typescript-eslint/no-use-before-define': ['error', { classes: true, enums: true }]
-    }
-  },
-  {
-    languageOptions: {
-      ecmaVersion: 2024,
-      sourceType: 'module'
-    }
-  },
-  eslint.configs.recommended,
-  ...tseslint.configs.recommended,
-  {
-    files: ['eslint.config.js', 'cli/*.js', 'test/*.js'],
-    languageOptions: {
-      parserOptions: {
-        projectService: {
-          allowDefaultProject: ['eslint.config.js', 'cli/*.js', 'test/*.js']
-        }
-      }
+      '@typescript-eslint/no-use-before-define': ['error', { classes: true, enums: true }],
+      '@typescript-eslint/prefer-destructuring': ['error']
     }
   }
-
-]
+)
