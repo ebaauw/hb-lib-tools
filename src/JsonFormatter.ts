@@ -228,20 +228,22 @@ class JsonFormatter {
   /** Transform javascript value into a formatted JSON string.
     *
     * @return The formatted JSON string or `undefined` if the input is not valid JSON.
+    * When the {@link Options.fromPath fromPath} option is set, `undefined` is also returned,
+    * when the path does not exist in `value`.
     */
   stringify (
     /* The JavaScript value. */
-    json: unknown
+    value : unknown
   ): string | undefined {
-    if (!isJson(json)) {
+    if (!isJson(value)) {
       return undefined
     }
-    let value: json = json
+    let val: json = value
     if (this.options.fromPath !== '/') {
       const a = this.options.fromPath.slice(1).split('/')
       for (const key of a) {
-        if (typeof value === 'object' && value != null) {
-          value = Array.isArray(value) ? value[Number(key)] : value[key]
+        if (typeof val === 'object' && val != null) {
+          val = Array.isArray(val) ? val[Number(key)] : val[key]
         } else {
           return undefined
         }
@@ -249,18 +251,18 @@ class JsonFormatter {
     }
 
     if (!this.options.jsonArray) {
-      return this.#format(value)
+      return this.#format(val)
     }
     
     if (this.options.ascii) {
-      const array = this.#stringMap(value, (keys: string[], value: json) => {
+      const array = this.#stringMap(val, (keys: string[], value: json) => {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return this.#format(value) }
         return `/${keys.join('/')}:${this.#format(value)}`
       })
       return array.join('\n')
     }
-    const array = this.#map(value, (keys: string[], value: json) => {
+    const array = this.#map(val, (keys: string[], value: json) => {
       if (this.options.joinKeys) {
         if (this.options.keysOnly) { return `/${keys.join('/')}` }
         if (this.options.valuesOnly) { return value }
