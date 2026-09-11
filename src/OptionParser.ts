@@ -112,7 +112,7 @@ export function toBool (
     return v
   }
   if (typeof v === 'number') {
-    v = `${v}`
+    v = String(v)
   }
   if (typeof v === 'string') {
     const s = v.toLowerCase()
@@ -258,25 +258,20 @@ export function toNumber (
     userInput?: boolean
   } = {}): number {
   validateOptions(options)
-  const min = options.min === undefined ? Number.MIN_VALUE: toNumber(options.min, { key: 'options.min' })
-  const max = options.max === undefined ? Number.MIN_VALUE : toNumber(options.max, { key: 'options.max' })
+  const min = options.min === undefined ? -Number.MAX_VALUE : toNumber(options.min, { key: 'options.min' })
+  const max = options.max === undefined ? Number.MAX_VALUE : toNumber(options.max, { key: 'options.max' })
   if (max < min) {
     throw newRangeError('options.max: smaller than options.min')
   }
-  let v = value
-
   let n: number
-  if (v == null) {
+  if (value == null) {
     throw newTypeError('missing number value', options)
   }
-  if (typeof v === 'number') {
-    v = `${v}`
-  }
-  if (typeof v === 'boolean') {
-    n = v ? 1 : 0
-  } else if (typeof v === 'string') {
-    if (patterns.number.test(v)) {
-      n = parseFloat(v)
+  if (typeof value === 'boolean') {
+    n = value ? 1 : 0
+  } else if (typeof value === 'number' || typeof value === 'string') {
+    if (patterns.number.test(String(value))) {
+      n = parseFloat(String(value))
     } else {
       throw newTypeError('not a number', options)
     }
@@ -896,7 +891,7 @@ class OptionParser extends EventEmitter<Events> {
     */
   numberKey (key: string, min?: number, max?: number): this {
     this.#checkKey(key)
-    min = min == null ? Number.MIN_VALUE : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
+    min = min == null ? -Number.MAX_VALUE : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
     max = max == null ? Number.MAX_VALUE : toNumber(max, { key: 'max' }) // eslint-disable-line no-param-reassign -- TODO
     if (max < min) {
       throw newRangeError('max: smaller than min')
