@@ -11,6 +11,8 @@ import { formatError, recommendedNodeVersion } from 'hb-lib-tools'
 import { chalk } from 'hb-lib-tools/chalk'
 import { toString } from 'hb-lib-tools/OptionParser'
 
+const EXIT_SIGNAL = 128
+
 /** Make text bold.
   * @param text - The text.
   * @return The bold text.
@@ -113,6 +115,23 @@ export abstract class CommandLineTool implements Logger {
   setOptions (options: Partial<Options> = {}): Options {
     const { _options: oldOptions } = this
     this._options = { ...this._options, ...options }
+    switch (this._options.mode) {
+      case 'command':
+        this._options.chalk = false
+        this._options.program = true
+        this._options.timestamp = false
+        break
+      case 'daemon':
+        this._options.chalk = true
+        this._options.program = false
+        this._options.timestamp = true
+        break
+      case 'service':
+        this._options.chalk = true
+        this._options.program = false
+        this._options.timestamp = false
+        break
+    }
     if (this._options.vvdebug) {
       this._options.vdebug = true
     }
@@ -126,8 +145,8 @@ export abstract class CommandLineTool implements Logger {
   }
 
   /** Do cleanup before exit. */
-  async destroy (): Promise<void> { // eslint-disable-line @typescript-eslint/class-methods-use-this -- noop
-    await Promise.resolve()
+  async destroy (): Promise<void> { // eslint-disable-line @typescript-eslint/class-methods-use-this -- no
+    // not applicable
   }
 
   // Signal handler.
@@ -135,7 +154,7 @@ export abstract class CommandLineTool implements Logger {
     this.log('got %s - exiting', signal)
     this.destroy()
       .catch((error: unknown) => { this.error(error) })
-      .finally(() => { process.exit(128 + signalNum) }) // eslint-disable-line @typescript-eslint/no-magic-numbers -- Exit status for signal
+      .finally(() => { process.exit(EXIT_SIGNAL + signalNum) })
   }
 
   /** Program name. */
@@ -283,7 +302,7 @@ export abstract class CommandLineTool implements Logger {
         message = `${this._name}: ${message}`
       }
       if (this._options.timestamp) {
-        // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- Remove time zone
+        // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- no
         timestamp = `[${String(new Date()).substring(0, 24)}] `
         if (this._options.chalk) {
           timestamp = chalk.white(timestamp)
@@ -537,7 +556,10 @@ export class CommandLineParser {
 
     // Parse flags and options.
     while (wordIndex < wordList.length) {
-      const word = wordList.at(wordIndex)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- wordIndex < wordList.length
+      const word = wordList.at(wordIndex)
+      if (word == null) {
+        break
+      }
       wordIndex += 1
       if (!word.startsWith('-') || word === '-') {
         wordIndex -= 1
