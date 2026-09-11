@@ -5,14 +5,22 @@
 
 import type { IncomingHttpHeaders, OutgoingHttpHeaders } from 'node:http'
 import type { PeerCertificate, TLSSocket } from 'node:tls'
-import type { Logger, integer, jsonMap } from 'hb-lib-tools'
+import type { Logger, integer, json, jsonMap } from 'hb-lib-tools'
 import type { host, path } from 'hb-lib-tools/OptionParser'
 
 import { EventEmitter, once } from 'node:events'
 import http from 'node:http'
 import https from 'node:https'
 
-import { toHost, toInt, toObject, toPath, toString } from 'hb-lib-tools/OptionParser'
+import { isJson, toHexString } from 'hb-lib-tools'
+import { toHost, toInt, toPath } from 'hb-lib-tools/OptionParser'
+
+const IPV4 = 4
+const IPV6 = 6
+const HTTP_PORT = 80
+const HTTPS_PORT = 443
+const HTTP_STATUS_OK = 200
+const TIMEOUT = 5
 
 /** HTTP request information. */
 export interface HttpRequest {
@@ -26,10 +34,12 @@ export interface HttpRequest {
   resource: string,
   /** Request headers. */
   headers: OutgoingHttpHeaders,
+  /** The raw HTTP request body. */
+  rawBody?: Buffer,
   /** Request body. */
-  body?: unknown,
-  /** Request body as JSON string. */
-  jsonBody?: string,
+  body?: string,
+  /** Request body as JSON. */
+  jsonBody?: json,
   /** Request action (for SOAP requests). */
   action?: string,
   /** Request URL. */
@@ -48,10 +58,18 @@ export interface HttpResponse {
   statusMessage?: string
   /** The HTTP response headers. */
   headers?: IncomingHttpHeaders
-  /** The HTTP response body. */
-  body?: unknown
   /** The raw HTTP response body. */
-  rawBody?: unknown
+  rawBody?: Buffer
+  /** The HTTP response body as text. */
+  body?: string,
+  /** The HTTP body response parsed as JSON. */
+  jsonBody?: json,
+  /** The HTTP response body parsed as XML. */
+  xmlBody?: json
+}
+
+function isHttpResponse (obj: unknown): obj is HttpResponse {
+  return typeof obj === 'object' && obj !== null && 'request' in obj
 }
 
 /** HTTP error. */
@@ -138,6 +156,21 @@ export interface Options {
   xmlParser?: (xml: string) => Promise<jsonMap>
 }
 
+/* Helper to signal request that HTTP response has been received. */
+class ResponseListener extends EventEmitter<{ 'response': [response: HttpResponse] }> {}
+
+/* Extract content-type and charset from HTTP headers. */
+function contentType (headers?: IncomingHttpHeaders): { type: string, charset: BufferEncoding } {
+  const contentType = headers?.['content-type'] ?? ''
+  const a = /^\s*(?<type>[^;]+)\s*(?:;\s*charset="?(?<cs>[^;"]+))?"?\s*$/.exec(contentType)
+  if (a?.groups == null) {
+    return { type: '', charset: 'utf-8' }
+  }
+  const { type, cs } = a.groups as Record<string, string | null>
+  const charset = cs != null && Buffer.isEncoding(cs) ? cs : 'utf-8'
+  return { type: type ?? '', charset }
+}
+
 /** HTTP client. */
 export class HttpClient extends EventEmitter<Events> {
   private readonly __options: Options & {
@@ -156,23 +189,23 @@ export class HttpClient extends EventEmitter<Events> {
     this.__options.logger?.error(format, ...args)
   }
 
-  protected warn(format: string | Error, ...args: unknown[]): void {
+  protected warn(format: unknown, ...args: unknown[]): void {
     this.__options.logger?.warn(format, ...args)
   }
 
-  protected log(format: string | Error, ...args: unknown[]): void {
+  protected log(format: unknown, ...args: unknown[]): void {
     this.__options.logger?.log(format, ...args)
   }
 
-  protected debug(format: string | Error, ...args: unknown[]): void {
+  protected debug(format: unknown, ...args: unknown[]): void {
     this.__options.logger?.debug(format, ...args)
   }
 
-  protected vdebug(format: string | Error, ...args: unknown[]): void {
+  protected vdebug(format: unknown, ...args: unknown[]): void {
     this.__options.logger?.vdebug(format, ...args)
   }
 
-  protected vvdebug(format: string | Error, ...args: unknown[]): void {
+  protected vvdebug(format: unknown, ...args: unknown[]): void {
     return this.__options.logger?.vvdebug(format, ...args)
   }
 
@@ -194,14 +227,14 @@ export class HttpClient extends EventEmitter<Events> {
       maxSockets: options.maxSockets ?? Infinity,
       name: options.name ?? hostname,
       path: options.path ?? '/',
-      port: port ?? ((options.https ?? false) ? 443 : 80), // eslint-disable-line @typescript-eslint/no-magic-numbers -- default ports
+      port: port ?? ((options.https ?? false) ? HTTPS_PORT : HTTP_PORT),
       selfSignedCertificate: options.selfSignedCertificate ?? false,
       suffix: options.suffix ?? '',
       text: options.text ?? false,
       timeout: options.timeout === undefined
-        ? 5 // eslint-disable-line @typescript-eslint/no-magic-numbers -- default timeout (seconds)
+        ? TIMEOUT
         : toInt(options.timeout, { key: 'options.timeout', min: 1, max: 60 }),
-      validStatusCodes: options.validStatusCodes ?? [200], // eslint-disable-line @typescript-eslint/no-magic-numbers -- default valid status codes
+      validStatusCodes: options.validStatusCodes ?? [HTTP_STATUS_OK],
       xmlParser: options.xmlParser
     }
 
@@ -226,9 +259,9 @@ export class HttpClient extends EventEmitter<Events> {
     const headers: OutgoingHttpHeaders = { ...this.__options.headers }
     this.__httpOptions = {
       agent: new this._http.Agent(agentOptions),
-      family: this.__options.ipv6 ? 6 : 4, // eslint-disable-line @typescript-eslint/no-magic-numbers -- 4=IPv4, 6=IPv6
+      family: this.__options.ipv6 ? IPV6 : IPV4,
       headers,
-      timeout: this.__options.timeout * 1000 // eslint-disable-line @typescript-eslint/no-magic-numbers -- s -> ms
+      timeout: this.__options.timeout * 1000
     }
     if (this.__options.json) {
       const contentType = 'application/json;charset=utf-8'
@@ -261,7 +294,7 @@ export class HttpClient extends EventEmitter<Events> {
     const { hostname, port } = toHost(host, { key: 'host' })
     this.__options.host = host
     this.__options.hostname = hostname
-    this.__options.port = port ?? (this.__options.https ? 443 : 80) // eslint-disable-line @typescript-eslint/no-magic-numbers -- default ports
+    this.__options.port = port ?? (this.__options.https ? HTTPS_PORT : HTTP_PORT)
     this.#setUrl()
   }
 
@@ -296,7 +329,7 @@ export class HttpClient extends EventEmitter<Events> {
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return await this.request('GET', resource, undefined, headers, suffix)
+    return await this.request({ resource, headers, suffix })
   }
 
   /** PUT request. */
@@ -304,13 +337,13 @@ export class HttpClient extends EventEmitter<Events> {
     /** The resource. */
     resource: path,
     /** The body for the request. */
-    body?: unknown,
+    body?: Buffer | string | json,
     /** Additional headers for the request. */
     headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return await this.request('PUT', resource, body, headers, suffix)
+    return await this.request({ method: 'PUT', resource, body, headers, suffix })
   }
 
   /** POST request. */
@@ -318,13 +351,13 @@ export class HttpClient extends EventEmitter<Events> {
     /** The resource. */
     resource: path,
     /** The body for the request. */
-    body?: unknown,
+    body?: Buffer | string | json,
     /** Additional headers for the request. */
     headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return await this.request('POST', resource, body, headers, suffix)
+    return await this.request({ method: 'POST', resource, body, headers, suffix })
   }
 
   /** DELETE request. */
@@ -332,40 +365,49 @@ export class HttpClient extends EventEmitter<Events> {
     /** The resource. */
     resource: path,
     /** The body for the request. */
-    body?: unknown,
+    body?: Buffer | string | json,
     /** Additional headers for the request. */
     headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string
   ): Promise<HttpResponse> {
-    return await this.request('DELETE', resource, body, headers, suffix)
+    return await this.request({ method: 'DELETE', resource, body, headers, suffix })
   }
 
   /** Issue an HTTP request. */
-  async request ( // eslint-disable-line @typescript-eslint/max-params -- ignore
-    /** The HTTP method. */
-    method: string,
-    /** The resource. */
-    resource: path,
+  async request (params: { // eslint-disable-line complexity -- TODO
+    /** The HTTP method. Default: `'GET'`. */
+    method?: string,
+    /** The resource.   Default `'/'`. */
+    resource?: path,
     /** The body for the request. */
-    body?: unknown,
-    /** Additional headers for the request. */
+    body?: Buffer | string | json,
+    /** Additional headers for the request. Default: `{}`. */
     headers?: Record<string, string>,
     /** Additional suffix to append after resource */
-    suffix = '',
+    suffix?: string,
     /** Additional key/value pairs to include in the request info. */
-    info: jsonMap = {}
-  ): Promise<HttpResponse> {
-    method = toString(method, { key: 'method', nonEmpty: true }).toUpperCase() // eslint-disable-line no-param-reassign -- ignore
+    info?: jsonMap
+  } = {}): Promise<HttpResponse> {
+    const method = params.method?.toUpperCase() ?? 'GET'
     if (!http.METHODS.includes(method)) {
-      throw new TypeError(`${method}: invalid method`)
+      throw new TypeError(`${params.method}: invalid method`)
     }
-    resource = toPath(resource, { key: 'resource' }) // eslint-disable-line no-param-reassign -- ignore
-    if (body != null && !Buffer.isBuffer(body)) {
-      body = this.__options.json // eslint-disable-line no-param-reassign -- ignore
-        ? JSON.stringify(body)
-        : toString(body, { key: 'body' })
+    const resource = toPath(params.resource ?? '/', { key: 'resource' })
+    const rawBody = params.body instanceof Buffer ? params.body : undefined
+    let body: string | undefined
+    let jsonBody: json | undefined
+    if (this.__options.json && isJson(params.body)) {
+      body = JSON.stringify(jsonBody)
+      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
+      jsonBody = params.body
+    } else {
+      body = typeof params.body === 'string' ? params.body : undefined
     }
+    const headers = params.headers ?? {}
+    const suffix = params.suffix ?? ''
+    const info = params.info ?? {}
+
     this.__requestId += 1
     const { __requestId: requestId } = this
     const url = this.__options.url + (resource === '/' ? '' : resource) +
@@ -373,14 +415,17 @@ export class HttpClient extends EventEmitter<Events> {
     const options: http.RequestOptions = { method, ...this.__httpOptions }
     const requestInfo: HttpRequest = {
       name: this.name,
-      headers: headers ?? {},
+      headers,
       id: requestId,
       method,
       resource,
+      rawBody,
       body,
+      jsonBody,
       url,
       info
     }
+    const responseListener = new ResponseListener()
     const request = this._http.request(url, options)
     request
       .on('error', (error) => {
@@ -425,101 +470,104 @@ export class HttpClient extends EventEmitter<Events> {
         const chunks: Buffer[] = []
         response
           .on('data', (chunk: Buffer) => { chunks.push(chunk) })
-          .on('end', async (): Promise<void> => { // eslint-disable-line complexity, @typescript-eslint/no-misused-promises -- ignore
+          .on('end', () => {
             const buffer = Buffer.concat(chunks)
             const responseInfo: HttpResponse = {
               request: requestInfo,
               headers: response.headers,
               statusCode: response.statusCode,
               statusMessage: response.statusMessage,
-              body: buffer.length > 0 ? buffer : null
+              rawBody: buffer.length > 0 ? buffer : undefined
             }
-            const errorMessages = []
-
-            const a = response.headers['content-type']?.split(';')
-            const contentType = a?.[0]
-            const charset = (a?.[1]?.split('=')[1]?.replace(/"/gv, '') ?? 'utf-8') as BufferEncoding
-            if (
-              contentType != null && (
-                contentType.startsWith('text/') ||
-                contentType.endsWith('/json') ||
-                contentType.endsWith('/xml')
-              )
-            ) {
-              try {
-                responseInfo.body = buffer.toString(charset)
-              } catch (error) {
-                const message = error instanceof Error ? error.message : String(error)
-                errorMessages.push(`response contains invalid text: ${message}`)
-              }
-            }
-            if (typeof responseInfo.body === 'string') {
-              if (contentType?.endsWith('/json') ?? false) {
-                try {
-                  responseInfo.body = JSON.parse(responseInfo.body)
-                } catch (error) {
-                  const message = error instanceof Error ? error.message : String(error)
-                  errorMessages.push(`response contains invalid json: ${message}`)
-                }
-              } else if ((contentType?.endsWith('/xml') ?? false) && this.__options.xmlParser != null) {
-                try {
-                  responseInfo.rawBody = responseInfo.body // eslint-disable-line @typescript-eslint/prefer-destructuring -- ignore
-                  responseInfo.body = await this.__options.xmlParser(responseInfo.body)
-                } catch (error) {
-                  responseInfo.rawBody = null
-                  const message = error instanceof Error ? error.message : String(error)
-                  errorMessages.push(`response contains invalid xml: ${message}`)
-                }
-              }
-            }
-            this.emit('response', responseInfo)
-
-            if (
-              responseInfo.body == null &&
-              responseInfo.statusCode != null &&
-              !this.__options.validStatusCodes.includes(responseInfo.statusCode)
-            ) {
-              errorMessages.push(`http status ${responseInfo.statusCode} ${responseInfo.statusMessage}`)
-            }
-            if (errorMessages.length > 0) {
-              for (const errorMessage of errorMessages) {
-                /** Emitted in case of error.
-                  * @event HttpClient#error
-                  * @param {HttpClient.HttpError} error - The error.
-                  */
-                this.emit('error', new HttpError(
-                  errorMessage, requestInfo, responseInfo
-                ))
-              }
-              return
-            }
-            this.emit(`${requestId}`, responseInfo)
+            responseListener.emit('response', responseInfo)
           })
       })
 
-    if (headers != null) {
-      headers = toObject(headers, { key: 'headers' }) as Record<string, string>
-      for (const header in headers) {
-        request.setHeader(header, headers[header])
+    for (const [key, value] of Object.entries(headers)) {
+      request.setHeader(key, value)
+    }
+    request.end(rawBody ?? body)
+
+    const a = await once(responseListener, 'response')
+    if (a[0] == null || !isHttpResponse(a[0])) {
+      throw new Error('invalid response received')
+    }
+    // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
+    const response = a[0]
+
+    const errorMessages = []
+    const { type, charset } = contentType(response.headers)
+    if (response.rawBody !== undefined) {
+      if (type.startsWith('text/') || type.endsWith('/json') || type.endsWith('/xml')) {
+        try {
+          response.body = response.rawBody.toString(charset)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          errorMessages.push(`response contains invalid text: ${message}`)
+        }
+      }
+      if (response.body !== undefined) {
+        if (type.endsWith('/json')) {
+          try {
+            const json: unknown = JSON.parse(response.rawBody.toString(charset))
+            if (isJson(json)) {
+              response.jsonBody = json
+            }
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            errorMessages.push(`response contains invalid json: ${message}`)
+          }
+        } else if (type.endsWith('/xml') && this.__options.xmlParser != null) {
+          try {
+            response.xmlBody = await this.__options.xmlParser(response.body)
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error)
+            errorMessages.push(`response contains invalid xml: ${message}`)
+          }
+        }
       }
     }
-    requestInfo.headers = request.getHeaders()
-    request.end(body)
-    const a = await once(this, `${requestId}`)
-    return a[0]
+
+    request.emit('response', response)
+
+    if (
+      response.body == null && response.statusCode != null &&
+      !this.__options.validStatusCodes.includes(response.statusCode)
+    ) {
+      errorMessages.push(`http status ${response.statusCode} ${response.statusMessage}`)
+    }
+    if (errorMessages.length > 0) {
+      for (const errorMessage of errorMessages) {
+        /** Emitted in case of error.
+          * @event HttpClient#error
+          * @param {HttpClient.HttpError} error - The error.
+          */
+        this.emit('error', new HttpError(
+          errorMessage, requestInfo, response
+        ))
+      }
+    }
+
+    return response
   }
 
   #logError (error: HttpError): void {
     const { request } = error
-    const body = request.jsonBody ?? request.body
-    const action = request.action ?? body
     if (request.id !== this.__errorRequestId) {
-      this.log(
-        '%s: request %s: %s %s%s', this.name, request.id,
-        request.method, request.resource,
-        action == null ? '' : ' ' + action
-      )
+      // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
       this.__errorRequestId = error.request.id
+      const action = request.action ?? request.jsonBody ?? request.body
+      if (action == null) {
+        this.log(
+          '%s: request %s: %s %s', this.name, request.id,
+          request.method, request.resource
+        )
+      } else {
+        this.log(
+          '%s: request %s: %s %s %j', this.name, request.id,
+          request.method, request.resource, action
+        )
+      }
     }
     this.warn(
       '%s: request %d: %s', request.name, request.id, error
@@ -527,37 +575,46 @@ export class HttpClient extends EventEmitter<Events> {
   }
 
   #logRequest (request: HttpRequest): void {
+    const action = request.action ?? request.jsonBody ?? request.body
+    if (action == null) {
+      this.debug(
+        '%s: request %s: %s %s', this.name, request.id,
+        request.method, request.resource
+      )
+    } else {
+      this.debug(
+        '%s: request %s: %s %s %j', this.name, request.id,
+        request.method, request.resource, action
+      )
+    }
     const body = request.jsonBody ?? request.body
-    const action = request.action ?? body
-    this.debug(
-      '%s: request %s: %s %s%s', this.name, request.id,
-      request.method, request.resource,
-      action == null ? '' : ' ' + action
-    )
-    this.vdebug(
-      '%s: request %s: %s %s%s', this.name, request.id,
-      request.method, request.url,
-      body == null ? '' : ' ' + body
-    )
-    if (request.headers != null) {
+    if (body == null) {
+      this.vdebug(
+        '%s: request %s: %s %s', this.name, request.id,
+        request.method, request.url
+      )
+    } else {
+      this.vdebug(
+        '%s: request %s: %s %s %j', this.name, request.id,
+        request.method, request.url, body
+      )
+    }
+    if (Object.keys(request.headers).length > 0) {
       this.vvdebug(
         '%s: request %s: headers: %j', this.name, request.id,
         request.headers
       )
     }
-    const rawBody = request.jsonBody != null ? request.body : null
-    if (rawBody != null) {
+    if (request.body == null && request.rawBody != null) {
       this.vvdebug(
-        '%s: request %s: body: %j', this.name, request.id,
-        rawBody
+        '%s: request %s: body: %s', this.name, request.id,
+        toHexString(request.rawBody)
+
       )
     }
   }
 
   #logResponse (response: HttpResponse): void {
-    const dontLogBody = response.body instanceof Buffer || (response.body as string)?.length > 1024
-    const body = dontLogBody ? (response.body as string)?.length : response.body
-    const rawBody = dontLogBody ? response.body : response.rawBody
     this.debug(
       '%s: request %d: http status %d %s', this.name, response.request.id,
       response.statusCode, response.statusMessage
@@ -566,14 +623,21 @@ export class HttpClient extends EventEmitter<Events> {
       '%s: request %d: response headers: %j', this.name, response.request.id,
       response.headers
     )
-    if (rawBody != null) {
+    if (response.xmlBody != null) {
       this.vvdebug(
-        '%s: request %d: response body: %j', this.name, response.request.id, rawBody
+        '%s: request %d: response body: %j', this.name, response.request.id, response.body
       )
     }
-    if (body != null) {
+    const body = response.xmlBody ?? response.jsonBody ?? response.body
+    if (body == null) {
+      if (response.rawBody != null) {
+        this.vvdebug(
+          '%s: request %d: response: %s', this.name, response.request.id, toHexString(response.rawBody)
+        )
+      }
+    } else {
       this.vdebug(
-        '%s: request %d: response: %j', this.name, response.request.id, body
+        '%s: request %d: response: %j', this.name, response.request.id, response.body
       )
     }
   }
