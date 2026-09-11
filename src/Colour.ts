@@ -423,7 +423,7 @@ export function xyToHsv (xy: xy, gamut: gamut = defaultGamut): hsv {
 
   // xyY to XYZ to RGB
   const p = closestInGamut(xyToPoint(xy), gamut)
-  const x = p.x // eslint-disable-line @typescript-eslint/prefer-destructuring -- keep consistent with y below
+  const x = p.x // eslint-disable-line @typescript-eslint/prefer-destructuring -- no
   const y = p.y === 0.0 ? 0.000001 : p.y
   const z = 1.0 - x - y
   const Y = 1.0
