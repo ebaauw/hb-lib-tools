@@ -33,11 +33,11 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/chalk": "^0.4.31",
-    "@types/node": "^26.4.0",
+    "@types/chalk": "^2.2.4",
+    "@types/node": "^22.20.2",
     "@types/semver": "^7.8.0",
     "eslint-config-love": "^156.0.0",
-    "typescript-eslint": "^8.67.0"
+    "typescript-eslint": "^8.70.0"
   },
   "scripts": {
     "build": "rm -rf dist && tsc",
