@@ -154,29 +154,29 @@ export function toInt (
   if (max < min) {
     throw newRangeError('options.max: smaller than options.min')
   }
-
+  let v = value
   let i: integer
-  if (value == null) {
+  if (v == null) {
     throw newTypeError('missing integer value', options)
   }
-  if (typeof value === 'number') {
-    value = String(value) // eslint-disable-line no-param-reassign -- ignore
+  if (typeof v === 'number') {
+    v = String(v)
   }
-  if (typeof value === 'boolean') {
-    i = value ? 1 : 0
-  } else if (typeof value === 'string') {
-    if (patterns.int.test(value)) {
-      i = parseInt(value, 10)
-    } else if (patterns.intHex.test(value)) {
-      i = parseInt(value, 16)
-    } else if (patterns.intOct.test(value)) {
-      const a = patterns.intOct.exec(value)
+  if (typeof v === 'boolean') {
+    i = v ? 1 : 0
+  } else if (typeof v === 'string') {
+    if (patterns.int.test(v)) {
+      i = parseInt(v, 10)
+    } else if (patterns.intHex.test(v)) {
+      i = parseInt(v, 16)
+    } else if (patterns.intOct.test(v)) {
+      const a = patterns.intOct.exec(v)
       if (a?.groups == null) {
         throw newTypeError('not an integer', options)
       }
       i = parseInt(a.groups.sign + a.groups.digits, 8)
-    } else if (patterns.intBin.test(value)) {
-      const a = patterns.intBin.exec(value)
+    } else if (patterns.intBin.test(v)) {
+      const a = patterns.intBin.exec(v)
       if (a?.groups == null) {
         throw newTypeError('not an integer', options)
       }
@@ -263,15 +263,19 @@ export function toNumber (
   if (max < min) {
     throw newRangeError('options.max: smaller than options.min')
   }
+  let v = value
   let n: number
   if (value == null) {
     throw newTypeError('missing number value', options)
   }
-  if (typeof value === 'boolean') {
-    n = value ? 1 : 0
-  } else if (typeof value === 'number' || typeof value === 'string') {
-    if (patterns.number.test(String(value))) {
-      n = parseFloat(String(value))
+  if (typeof v === 'number') {
+    v = String(v)
+  }
+  if (typeof v === 'boolean') {
+    n = v ? 1 : 0
+  } else if (typeof v === 'string') {
+    if (patterns.number.test(v)) {
+      n = parseFloat(v)
     } else {
       throw newTypeError('not a number', options)
     }
@@ -308,7 +312,7 @@ export function toNumberString (
     userInput?: boolean
   } = {}): string {
   validateOptions(options)
-  const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
+  const length: number = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
   const decimals = options.decimals === undefined ? undefined : toInt(options.decimals, { key: 'options.decimals', min: 0, max: 16 })
 
   let n = toNumber(value, options)
@@ -320,7 +324,6 @@ export function toNumberString (
   if (s.length > length) {
     return s
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-unary-minus -- integer is NumberLike
   return (`                                ${s}`).slice(-length)
 }
 
@@ -540,7 +543,7 @@ export function toFunction (
     typeof value === 'function' && value.prototype == null &&
     value.constructor.name === 'Function'
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TODO
     return value as (...args: unknown[]) => unknown
   }
   throw newTypeError('not a function', options)
@@ -569,7 +572,7 @@ export function toAsyncFunction (
     typeof value === 'function' &&
     value.constructor.name === 'AsyncFunction'
   ) {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TODO
     return value as (...args: unknown[]) => Promise<unknown>
   }
   throw newTypeError('not an async function', options)
@@ -607,7 +610,7 @@ export function toClass (
   ) {
     throw newTypeError(`not a subclass of ${SuperClass.name}`, options)
   }
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- value is a proper function.
+  // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion -- TODO
   return value as new (...args: unknown[]) => unknown
 }
 
@@ -830,14 +833,14 @@ class OptionParser extends EventEmitter<Events> {
     */
   intKey (key: string, min?: integer, max?: integer): this {
     this.#checkKey(key)
-    min = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'options.min' }) // eslint-disable-line no-param-reassign -- TODO
-    max = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'options.max' }) // eslint-disable-line no-param-reassign -- TODO
-    if (max < min) {
+    const minimum = min == null ? Number.MIN_SAFE_INTEGER : toInt(min, { key: 'options.min' })
+    const maximum = max == null ? Number.MAX_SAFE_INTEGER : toInt(max, { key: 'options.max' })
+    if (maximum < minimum) {
       throw newRangeError('options.max: smaller than options.min')
     }
 
     this._callbacks[key] = (value) => {
-      this._object[key] = toInt(value, { key, min, max, userInput: this._userInput })
+      this._object[key] = toInt(value, { key, min: minimum, max: maximum, userInput: this._userInput })
     }
     return this
   }
@@ -891,14 +894,14 @@ class OptionParser extends EventEmitter<Events> {
     */
   numberKey (key: string, min?: number, max?: number): this {
     this.#checkKey(key)
-    min = min == null ? -Number.MAX_VALUE : toNumber(min, { key: 'min' }) // eslint-disable-line no-param-reassign -- TODO
-    max = max == null ? Number.MAX_VALUE : toNumber(max, { key: 'max' }) // eslint-disable-line no-param-reassign -- TODO
-    if (max < min) {
+    const minimum = min == null ? -Number.MAX_VALUE : toNumber(min, { key: 'min' })
+    const maximum = max == null ? Number.MAX_VALUE : toNumber(max, { key: 'max' })
+    if (maximum < minimum) {
       throw newRangeError('max: smaller than min')
     }
 
     this._callbacks[key] = (value: unknown) => {
-      this._object[key] = toNumber(value, { key, min, max, userInput: this._userInput })
+      this._object[key] = toNumber(value, { key, min: minimum, max: maximum, userInput: this._userInput })
     }
     return this
   }
