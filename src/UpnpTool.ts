@@ -124,9 +124,9 @@ class UpnpTool extends CommandLineTool {
         this.setOptions({ mode: this.options.mode })
         this.upnpClient
           .on('deviceAlive', (address, message) => {
-            this.log('%s alive at %s:  %j', message.nt, message.location, message)
+            this.log('%s alive at %s: %s', message.nt, message.location, this.jsonFormatter.stringify(message))
           })
-        this.upnpClient.listen()
+        await this.upnpClient.listen()
         return
       }
       const result = await this.upnpClient.search()
@@ -137,8 +137,7 @@ class UpnpTool extends CommandLineTool {
   }
 
   async destroy (): Promise<void> {
-    this.upnpClient?.stopListen()
-    await Promise.resolve()
+    await this.upnpClient?.stopListen()
   }
 }
 
