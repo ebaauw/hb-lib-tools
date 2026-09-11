@@ -210,7 +210,7 @@ export class HttpClient extends EventEmitter<Events> {
   }
 
   /** Create a new instance of a client to an HTTP server. */
-  constructor (options: Partial<Options> = {}) { // eslint-disable-line complexity -- ignore
+  constructor (options: Partial<Options> = {}) { // eslint-disable-line complexity -- TODO
     super()
     const { hostname, port } = toHost(options.host ?? 'localhost', { key: 'params.host' })
     this.__options = {
