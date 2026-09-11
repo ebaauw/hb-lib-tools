@@ -87,6 +87,9 @@ class MdnsClient extends EventEmitter<Events> {
     this.browser = this.bonjour.find({ type: this.options.serviceType })
     this.browser.on('up', (message) => {
       // this.vvvdebug('mdns: found %j: %j', message.fqdn, message)
+      if ('rawTxt' in message) {
+        delete message.rawTxt // eslint-disable-line no-param-reassign -- no
+      }
       if (!this.options.filter(message)) {
         return
       }
