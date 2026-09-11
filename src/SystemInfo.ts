@@ -14,8 +14,8 @@ import type { integer } from 'hb-lib-tools'
 import { toHexString } from 'hb-lib-tools'
 import { semver } from 'hb-lib-tools/semver'
 
-const execAsync = promisify(exec) // eslint-disable-line @typescript-eslint/strict-void-return -- promisify exec
-const execFileAsync = promisify(execFile) // eslint-disable-line @typescript-eslint/strict-void-return -- promisify execFile
+const execAsync = promisify(exec) // eslint-disable-line @typescript-eslint/strict-void-return -- no
+const execFileAsync = promisify(execFile) // eslint-disable-line @typescript-eslint/strict-void-return -- no
 
 export interface DefaultHwInfo {
   _kind: 'default',
@@ -450,19 +450,19 @@ class SystemInfo {
           `${process.env.HOME}/Library/Preferences/com.apple.SystemProfiler.plist`
         )
         const regexp = RegExp(
-          // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- match last 3 or 4 characters of serial number
+          // eslint-disable-next-line @typescript-eslint/no-magic-numbers -- no
           `"(?:${id.slice(-4)}|${id.slice(-3)}).*" => "(?<name>.*)"`
         )
         const a = regexp.exec(text)
         if (a?.groups != null) {
-          // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- sic
+          // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
           prettyName = a.groups.name
         }
       } else { // Apple silicon
         const text = await this.execShell('ioreg -l | grep product-description')
         const a = /"product-description" = <"(?<descr>[^"]*)">/.exec(text)
         if (a?.groups != null) {
-          // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- sic
+          // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
           prettyName = a.groups.descr
         }
       }
