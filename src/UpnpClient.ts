@@ -11,16 +11,19 @@ import { EventEmitter, once } from 'node:events'
 import { timeout } from 'hb-lib-tools'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
+const TIMEOUT = 5
+
 // Convert raw UPnP message to message object.
 function convert (rawMessage: string): Record<string, string> {
   const message: Record<string, string> = {}
   const lines: string[] = rawMessage.trim().split('\r\n')
-  if (lines.at(0) != null) {
-    message.status = lines.at(0)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- lines.at(0) != null
+  if (lines.length > 0) {
+    [ message.status ] = lines
     for (const line of lines) {
       const fields = line.split(': ')
       if (fields.length === 2) {
-        message[fields.at(0)!.toLowerCase()] = fields.at(1)! // eslint-disable-line @typescript-eslint/no-non-null-assertion -- fields.length === 2
+        const [key, value] = fields
+        message[key.toLocaleLowerCase()] = value
       }
     }
   }
@@ -46,7 +49,7 @@ export interface Events {
 /** Universal Plug and Play client. */
 class UpnpClient extends EventEmitter<Events> {
   private readonly options
-  private socket?: ReturnType<typeof createSocket>
+  private readonly socket: ReturnType<typeof createSocket>
   private host?: string
 
   /** Create a new instance of a Universal Plug and Play client. */
@@ -75,44 +78,16 @@ class UpnpClient extends EventEmitter<Events> {
       hostname: '239.255.255.250',
       port: 1900,
       timeout: params.timeout == null
-        ? 5 // eslint-disable-line @typescript-eslint/no-magic-numbers -- default timeout
+        ? TIMEOUT
         : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 }) 
     }
-  }
-
-  private warn (format: unknown, ...args: unknown[]): void {
-    this.options.logger?.warn(format, ...args)
-  }
-
-  private debug (format: unknown, ...args: unknown[]): void {
-    this.options.logger?.debug(format, ...args)
-  }
-
-  private vdebug (format: unknown, ...args: unknown[]): void {
-    this.options.logger?.vdebug(format, ...args)
-  }
-
-  private vvdebug (format: unknown, ...args: unknown[]): void {
-    this.options.logger?.vvdebug(format, ...args)
-  }
-
-  /** Listen for UPnP alive broadcast messages.
-    *
-    * A {@link Events.deviceAlive deviceAlive} event will be emitted
-    * on each alive message received, that passes the filters.
-    */
-  listen (): void {
-    if (this.socket != null) {
-      this.socket.close()
-    }
     this.socket = createSocket({ type: 'udp4', reuseAddr: true })
-    this.socket.bind(this.options.port)
     this.socket
       .on('error', (error: Error) => {
         this.warn(error)
       })
       .on('listening', () => {
-        const { address, port } = this.socket!.address() // eslint-disable-line @typescript-eslint/no-non-null-assertion -- this.socket != null
+        const { address, port } = this.socket.address()
         this.host = `${address}:${port}`
         this.debug(
           'upnp: listening on %s for %s',
@@ -122,8 +97,6 @@ class UpnpClient extends EventEmitter<Events> {
       .on('close', () => {
         this.debug('upnp: stop listening on %s', this.host)
         this.host = undefined
-        this.socket?.removeAllListeners()
-        this.socket = undefined
       })
       .on('message', (buffer, rinfo) => {
         const rawMessage = buffer.toString().trim()
@@ -149,9 +122,39 @@ class UpnpClient extends EventEmitter<Events> {
       })
   }
 
+  private warn (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.warn(format, ...args)
+  }
+
+  private debug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.debug(format, ...args)
+  }
+
+  private vdebug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.vdebug(format, ...args)
+  }
+
+  private vvdebug (format: unknown, ...args: unknown[]): void {
+    this.options.logger?.vvdebug(format, ...args)
+  }
+
+  /** Listen for UPnP alive broadcast messages.
+    *
+    * A {@link Events.deviceAlive deviceAlive} event will be emitted
+    * on each alive message received, that passes the filters.
+    */
+  async listen (): Promise<void> {
+    if (this.host != null) {
+      return
+    }
+    this.socket.bind(this.options.port)
+    await once(this.socket, 'listening')
+  }
+
   /** Stop listening for UPnP alive broadcast messages. */
-  stopListen (): void {
-    this.socket?.close()
+  async stopListen (): Promise<void> {
+    this.socket.close()
+    await once(this.socket, 'close')
   }
 
   /** Issue a UPnP search message and listen for responses.
