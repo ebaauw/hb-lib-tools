@@ -12,6 +12,8 @@ import Bonjour from 'bonjour-service'
 import { timeout } from 'hb-lib-tools'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
+const TIMEOUT = 5
+
 /** {@link MdnsClient} events. */
 export interface Events {
   /** Emitted by {@link MdnsClient.listen listen()} each service up announcement received, that passes the filers.
@@ -53,7 +55,7 @@ class MdnsClient extends EventEmitter<Events> {
       logger: params.logger,
       serviceType: params.serviceType ?? 'hap',
       timeout: params.timeout == null
-        ? 5 // eslint-disable-line @typescript-eslint/no-magic-numbers -- default timeout
+        ? TIMEOUT
         : toInt(params.timeout, { key: 'params.timeout', min: 1, max: 60 })
     }
   }
