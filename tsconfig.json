@@ -19,8 +19,5 @@
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
   },
-  "include": [
-    "homebridge-ui",
-    "src"
-  ]
+  "include": ["src"]
 }
