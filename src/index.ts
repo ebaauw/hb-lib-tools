@@ -51,15 +51,14 @@
   * const { HttpClient } = await import('hb-lib-tools/HttpClient')
   * ```
   * 
-  * ### Utility Types
-  * This library provides a number of utility types used by the utility classes and functions.
-  * Type              | Description
+  * ### Utility Types and Interfaces
+  * This library provides a number of utility types and interfacesused by the utility classes and functions.
+  * Type / Interface  | Description
   * ----------------- | -----------
   * {@link integer}   | Integer number.
   * {@link json}      | JSON value.
   * {@link jsonMap}   | Map of string keys to JSON values.
   * {@link Logger}    | Logger interface.
-  * {@link map}       | Map of string keys to unknown values.
   * 
   * To use the types provided by this library, issue:
   * ```typescript
@@ -71,13 +70,15 @@
   * Function                       | Description
   * ------------------------------ | -----------
   * {@link formatError}            | Convert Error to string.
+  * {@link isJson}                 | Guard for {@link json}.
+  * {@link isJsonMap}              | Guard for {@link jsonMap}.
   * {@link recommendedNodeVersion} | Return the recommended version of NodeJS from package.json.
   * {@link timeout}                | Resolve after given time, delaying execution.
   * {@link toHexString}            | Convert {@link integer} or `Buffer` to hex string.
   *
   * To use the utility functions, issue:
   * ```typescript
-  * import { formatError, recommendedNodeVersion, timeout, toHexString } from 'hb-lib-tools'
+  * import { isJson, isJsonMap } from 'hb-lib-tools'
   * ```
   * @module 
   */
@@ -88,23 +89,23 @@ export type json = null | boolean | number | string | json[] | jsonMap
 export interface jsonMap extends Record<string, json> {}
 
 /** Guard for {@link json}. */
-export function isJson (json: unknown): json is json {
-  if (json === null || typeof json === 'boolean' || typeof json === 'number' || typeof json === 'string') {
+export function isJson (value: unknown): value is json {
+  if (value === null || typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
     return true
   }
-  if (Array.isArray(json)) {
-    return json.every((v) => isJson(v))
+  if (Array.isArray(value)) {
+    return value.every((v) => isJson(v))
   }
-  if (typeof json === 'object') {
-    return Object.keys(json).every(k => typeof k === 'string') &&
-    Object.values(json).every((v) => isJson(v))
+  if (typeof value === 'object') {
+    return Object.keys(value).every(k => typeof k === 'string') &&
+    Object.values(value).every((v) => isJson(v))
   }
   return false
 }
 
 /** Guard for {@link jsonMap}. */
-export function isJsonMap (json: unknown): json is jsonMap {
-  return typeof json === 'object' && json !== null && !Array.isArray(json) && isJson(json)
+export function isJsonMap (value: unknown): value is jsonMap {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) && isJson(value)
 }
 
 import { isIPv6 } from 'node:net'
