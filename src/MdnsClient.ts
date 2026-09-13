@@ -12,7 +12,7 @@ import Bonjour from 'bonjour-service'
 import { timeout } from 'hb-lib-tools'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
-const TIMEOUT = 5
+const TIMEOUT: integer = 5
 
 /** {@link MdnsClient} events. */
 export interface Events {
