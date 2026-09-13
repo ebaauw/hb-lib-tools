@@ -231,7 +231,8 @@ export function toIntString (
   const prefix = radix === 10
     ? '                                '
     : '00000000000000000000000000000000'
-  return (prefix + s).slice(-length)
+
+  return (prefix + s).slice(0 - length)
 }
 
 /** Casts input value to number, optionally clamped between min and max.
