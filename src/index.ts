@@ -83,7 +83,7 @@
   * @module 
   */
 
-export type integer = number & {}
+export type integer = number
 
 export type json = null | boolean | number | string | json[] | jsonMap
 export interface jsonMap extends Record<string, json> {}
