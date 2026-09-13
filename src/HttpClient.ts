@@ -15,12 +15,12 @@ import https from 'node:https'
 import { isJson, toHexString } from 'hb-lib-tools'
 import { toHost, toInt, toPath } from 'hb-lib-tools/OptionParser'
 
-const IPV4 = 4
-const IPV6 = 6
-const HTTP_PORT = 80
-const HTTPS_PORT = 443
-const HTTP_STATUS_OK = 200
-const TIMEOUT = 5
+const IPV4: integer = 4
+const IPV6: integer = 6
+const HTTP_PORT: integer = 80
+const HTTPS_PORT: integer = 443
+const HTTP_STATUS_OK: integer = 200
+const TIMEOUT: integer = 5
 
 /** HTTP request information. */
 export interface HttpRequest {
