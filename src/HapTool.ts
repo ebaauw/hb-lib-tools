@@ -125,9 +125,8 @@ class HapTool extends CommandLineTool {
     }
   }
 
-  async destroy (): Promise<void> {
+  async destroy (): Promise<void> { // eslint-disable-line @typescript-eslint/require-await -- no
     this.client?.stopListen()
-    await Promise.resolve()
   }
 }
 
