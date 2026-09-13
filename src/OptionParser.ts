@@ -218,7 +218,7 @@ export function toIntString (
   } = {}): string {
   validateOptions(options)
   const radix = options.radix === undefined ? 10 : toInt(options.radix, { key: 'options.radix', min: 2, max: 36 })
-  const length: number = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
+  const length = options.length === undefined ? 0 : toInt(options.length, { key: 'options.length', min: 0, max: 32 })
 
   const i = toInt(value, options)
   if (i < 0 && radix !== 10) {
