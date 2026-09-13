@@ -11,7 +11,7 @@ import { EventEmitter, once } from 'node:events'
 import { timeout } from 'hb-lib-tools'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
-const TIMEOUT = 5
+const TIMEOUT: integer = 5
 
 // Convert raw UPnP message to message object.
 function convert (rawMessage: string): Record<string, string> {
