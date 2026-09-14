@@ -10,7 +10,7 @@
 import type { integer, json, jsonMap } from 'hb-lib-tools'
 import type { path } from 'hb-lib-tools/OptionParser'
 
-import { isJson } from 'hb-lib-tools'
+import { toJson } from 'hb-lib-tools'
 import { toPath } from 'hb-lib-tools/OptionParser'
 
 /** {@link JsonFormatter} options. */
@@ -235,10 +235,10 @@ class JsonFormatter {
     /* The JavaScript value. */
     value : unknown
   ): string | undefined {
-    if (!isJson(value)) {
+    let val = toJson(value)
+    if (val === undefined) {
       return undefined
     }
-    let val: json = value
     if (this.options.fromPath !== '/') {
       const a = this.options.fromPath.slice(1).split('/')
       for (const key of a) {
