@@ -108,6 +108,53 @@ export function isJsonMap (value: unknown): value is jsonMap {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && isJson(value)
 }
 
+/** Convert value to {@link json}.
+  *
+  * Removes non-serialisable values from arrays and objects.
+  * @throws When the value cannot be serialised to JSON.
+  */
+export function toJson (value: unknown): json | undefined {
+  if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
+    return value
+  }
+  if (typeof value != 'object') {
+    return undefined
+  }
+  if (value == null) {
+    return null
+  }
+  if (Array.isArray(value)) {
+    const result: json[] = []
+    value.forEach((item: unknown) => {
+      const v = toJson(item)
+      if (v !== undefined) {
+        result.push(v)
+      }
+    })
+    return result 
+  }
+  // eslint-disable-next-line @typescript-eslint/no-use-before-define -- no
+  return toJsonMap(value) // eslint-disable-line no-use-before-define -- no
+}
+
+/** Convert object to {@link jsonMap}.
+  *
+  * Removes non-serialisable values from arrays and objects.
+  */
+export function toJsonMap (value: unknown): jsonMap | undefined {
+  if (typeof value != 'object' || value == null) {
+    return undefined
+  }
+  const map: jsonMap = {}
+  for (const [k, v] of Object.entries(value) as Array<[string, unknown]>) {
+    const value = toJson(v)
+    if (value !== undefined) {
+      map[k] = value
+    }
+  }
+  return map
+}
+
 import { isIPv6 } from 'node:net'
 import { setTimeout } from 'node:timers/promises'
 import { getSystemErrorMessage } from 'node:util'
