@@ -131,9 +131,7 @@ class UpnpTool extends CommandLineTool {
       }
       const result = await this.upnpClient.search()
       this.print(this.jsonFormatter.stringify(result))
-    } catch (error) {
-      this.fatal(error)
-    }
+    } catch (error) { this.error(error) }
   }
 
   async destroy (): Promise<void> {
