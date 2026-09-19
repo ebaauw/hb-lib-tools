@@ -140,11 +140,10 @@ class JsonFormatter {
   #forEach (value: json, callback: (keys: string[], value: json) => void): void {
     const forEach: (keys: string[], value: json, depth: number) => void = (keys, value, depth) => {
       if (
-        (value == null || typeof value !== 'object') &&
+        value == null || typeof value !== 'object' ||
         (!this.options.leavesOnly && (!this.options.topOnly || depth === 1))
       ) {
         callback(keys, value)
-        return
       }
       if (
         typeof value === 'object' && value != null &&
