@@ -111,7 +111,6 @@ export function isJsonMap (value: unknown): value is jsonMap {
 /** Convert value to {@link json}.
   *
   * Removes non-serialisable values from arrays and objects.
-  * @throws When the value cannot be serialised to JSON.
   */
 export function toJson (value: unknown): json | undefined {
   if (typeof value === 'boolean' || typeof value === 'number' || typeof value === 'string') {
