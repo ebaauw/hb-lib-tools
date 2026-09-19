@@ -184,7 +184,6 @@ class JsonTool extends CommandLineTool {
     }
   }
 
-
   async main (): Promise<void> {
     try {
       this.parseArguments()
