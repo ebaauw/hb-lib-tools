@@ -43,7 +43,7 @@ export interface HttpRequest {
   /** Request action (for SOAP requests). */
   action?: string,
   /** Request URL. */
-  url: string
+  url: string,
   /** Additional key/value pairs to include in the request info. */
   info?: jsonMap
 }
@@ -53,13 +53,13 @@ export interface HttpResponse {
   /** Information about the corresponding HTTP request. */
   request: HttpRequest
   /** The HTTP status code. */
-  statusCode?: integer
+  statusCode?: integer,
   /** The HTTP status message. */
-  statusMessage?: string
+  statusMessage?: string,
   /** The HTTP response headers. */
-  headers?: IncomingHttpHeaders
+  headers?: IncomingHttpHeaders,
   /** The raw HTTP response body. */
-  rawBody?: Buffer
+  rawBody?: Buffer,
   /** The HTTP response body as text. */
   body?: string,
   /** The HTTP body response parsed as JSON. */
@@ -132,7 +132,7 @@ export interface Options {
   /** Keep server connection(s) open. */
   keepAlive: boolean,
   /** Logger instance to log to. */
-  logger?: Logger
+  logger?: Logger,
   /** Throttle requests to maximum number of parallel connections. */
   maxSockets: integer,
   /** The name of the server.  Defaults to hostname. */
@@ -250,11 +250,13 @@ export class HttpClient extends EventEmitter<Events> {
     }
     this._http = this.__options.https ? https : http
     const agentOptions: https.AgentOptions = {
-      ca: this.__options.ca ?? undefined,
-      checkServerIdentity: this.__options.checkServerIdentity?.bind(this) ?? undefined,
+      ca: this.__options.ca,
       keepAlive: this.__options.keepAlive,
       maxSockets: this.__options.maxSockets,
       rejectUnauthorized: !this.__options.selfSignedCertificate
+    }
+    if (this.__options.checkServerIdentity != null) {
+      agentOptions.checkServerIdentity = this.__options.checkServerIdentity.bind(this)
     }
     const headers: OutgoingHttpHeaders = { ...this.__options.headers }
     this.__httpOptions = {
@@ -528,7 +530,7 @@ export class HttpClient extends EventEmitter<Events> {
       }
     }
 
-    request.emit('response', response)
+    this.emit('response', response)
 
     if (
       response.body == null && response.statusCode != null &&
