@@ -971,7 +971,7 @@ class OptionParser extends EventEmitter<Events> {
   parse (options: Record<string, unknown>): Record<string, unknown> {
     Object.keys(options).forEach(key => {
       try {
-        if (!( key in this._callbacks[key])) {
+        if (!( key in this._callbacks)) {
           throw newSyntaxError('invalid key', { key, userInput: this._userInput })
         }
         this._callbacks[key](options[key])
