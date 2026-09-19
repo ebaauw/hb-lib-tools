@@ -28,9 +28,11 @@ const gunzip = promisify(unzip)
 async function readStdin (): Promise<string> {
   let s = ''
   process.stdin.setEncoding('utf8')
-  for await (const chunk of process.stdin) {
-    s += chunk
-  }
+  try {
+    for await (const chunk of process.stdin) {
+      s += chunk
+    }
+  } catch (error) { }
   return s
 }
 
@@ -163,6 +165,9 @@ class JsonTool extends CommandLineTool {
   }
 
   processString (s: string): void {
+    if (process.exitCode != null) {
+      return
+    }
     try {
       const json: unknown = JSON.parse(s)
       if (!isJson(json)) {
@@ -200,6 +205,9 @@ class JsonTool extends CommandLineTool {
       await this.fileList.reduce(async (previous, file) => {
         await previous
         try {
+          if (process.exitCode != null) {
+            return
+          }
           const s = file === '-'
             ? await readStdin()
             : file.endsWith('.gz')
@@ -209,6 +217,11 @@ class JsonTool extends CommandLineTool {
         } catch (error) { this.error(error) }
       }, Promise.resolve())
     } catch (error) { this.error(error) }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/class-methods-use-this -- no
+  async destroy (): Promise<void> { // eslint-disable-line @typescript-eslint/require-await -- no
+    process.stdin.destroy()
   }
 }
 
