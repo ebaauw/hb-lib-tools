@@ -154,7 +154,7 @@ export abstract class CommandLineTool implements Logger {
     this.log('got %s - exiting', signal)
     this.destroy()
       .catch((error: unknown) => { this.error(error) })
-      .finally(() => { process.exit(EXIT_SIGNAL + signalNum) })
+    process.exitCode = EXIT_SIGNAL + signalNum
   }
 
   /** Program name. */
@@ -197,14 +197,11 @@ export abstract class CommandLineTool implements Logger {
   }
 
   /** Print error message to stderr and abort program. */
-  fatal (format: unknown, ...args: unknown[]): never {
+  fatal (format: unknown, ...args: unknown[]): void {
     this.#log({ label: 'fatal', chalk: chalk.bold.red }, format, ...args)
     this.destroy()
       .catch((error: unknown) => { this.error(error) })
-      .finally(() => { process.exit(-1) })
-    while (true) {
-      // Wait for destroy() to finish.
-    }
+    process.exitCode = -1
   }
 
   // /** Print info message to stderr. */
