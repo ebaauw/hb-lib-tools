@@ -397,14 +397,12 @@ export class HttpClient extends EventEmitter<Events> {
     }
     const resource = toPath(params.resource ?? '/', { key: 'resource' })
     const rawBody = params.body instanceof Buffer ? params.body : undefined
-    let body: string | undefined
+    let body = typeof params.body === 'string' ? params.body : undefined
     let jsonBody: json | undefined
     if (this.__options.json && isJson(params.body)) {
-      body = JSON.stringify(jsonBody)
       // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
       jsonBody = params.body
-    } else {
-      body = typeof params.body === 'string' ? params.body : undefined
+      body = JSON.stringify(jsonBody)
     }
     const headers = params.headers ?? {}
     const suffix = params.suffix ?? ''
