@@ -16,8 +16,6 @@ import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt } from 'hb-lib-tools/OptionParser'
 import { UpnpClient } from 'hb-lib-tools/UpnpClient'
 
-import defaultPackageJson from '../package.json' with { type: 'json' }
-
 const usage = `${b('upnp')} [${b('-hVDadnpsz')}] [${b('-T')} ${u('deviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `UPnP tool.
 
@@ -62,7 +60,6 @@ Parameters:
 
 /** @ignore */
 class UpnpTool extends CommandLineTool {
-  _packageJson: jsonMap
   upnpClient: UpnpClient | null = null
   jsonFormatter!: JsonFormatter
   options: {
@@ -74,9 +71,7 @@ class UpnpTool extends CommandLineTool {
   upnp: Record<string, unknown>
 
   constructor (packageJson?: jsonMap) {
-    super()
-
-    this._packageJson = packageJson ?? defaultPackageJson
+    super(packageJson)
     this.options = {
       deviceType: 'upnp:rootdevice',
       timeout: 5
