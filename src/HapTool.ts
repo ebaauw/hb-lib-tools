@@ -19,8 +19,6 @@ import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { MdnsClient } from 'hb-lib-tools/MdnsClient'
 import { toInt } from 'hb-lib-tools/OptionParser'
 
-import defaultPackageJson from '../package.json' with { type: 'json' }
-
 const usage = `${b('hap')} [${b('-hVDads')}] [${b('-T')} ${u('serviceType')}] [${b('-t')} ${u('timeout')}]`
 const help = `HAP tool.
 
@@ -57,7 +55,6 @@ Parameters:
 
 /** @ignore */
 class HapTool extends CommandLineTool {
-  protected _packageJson: jsonMap
   client: MdnsClient | null = null
   jsonFormatter!: JsonFormatter
   options: {
@@ -68,8 +65,7 @@ class HapTool extends CommandLineTool {
 
 
   constructor (packageJson?: jsonMap) {
-    super()
-    this._packageJson = packageJson ?? defaultPackageJson
+    super(packageJson)
     this.options = {
       serviceType: 'hap',
       timeout: 5
