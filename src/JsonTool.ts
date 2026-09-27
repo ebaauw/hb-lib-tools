@@ -21,8 +21,6 @@ import { CommandLineTool, CommandLineParser, b, u } from 'hb-lib-tools/CommandLi
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { toInt, toPath } from 'hb-lib-tools/OptionParser'
 
-import defaultPackageJson from '../package.json' with { type: 'json' }
-
 const gunzip = promisify(unzip)
 
 async function readStdin (): Promise<string> {
@@ -98,7 +96,6 @@ Parameters:
 
 /** @ignore */
 class JsonTool extends CommandLineTool {
-  protected _packageJson: jsonMap
   private readonly options: {
     sortKeys: boolean,
     noWhiteSpace: boolean,
@@ -119,8 +116,7 @@ class JsonTool extends CommandLineTool {
 
   /** @hidden */
   constructor (packageJson?: jsonMap) {
-    super()
-    this._packageJson = packageJson ?? defaultPackageJson
+    super(packageJson)
     this.usage = usage
     this.options = {
       sortKeys: false,
