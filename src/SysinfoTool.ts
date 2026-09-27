@@ -14,8 +14,6 @@ import { CommandLineTool, CommandLineParser, b } from 'hb-lib-tools/CommandLineT
 import { JsonFormatter } from 'hb-lib-tools/JsonFormatter'
 import { SystemInfo } from 'hb-lib-tools/SystemInfo'
 
-import defaultPackageJson from '../package.json' with { type: 'json' }
-
 const usage = `${b('sysinfo')} [${b('-hVDj')}]`
 const help = `System information tool.
 
@@ -38,13 +36,11 @@ Parameters:
 
 /** @ignore */
 class SysinfoTool extends CommandLineTool {
-  _packageJson: jsonMap
   systemInfo: SystemInfo | null = null
   json = false
 
   constructor (packageJson?: jsonMap) {
-    super()
-    this._packageJson = packageJson ?? defaultPackageJson
+    super(packageJson)
     this.usage = usage
   }
 
