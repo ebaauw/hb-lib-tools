@@ -11,6 +11,8 @@ import { formatError, recommendedNodeVersion } from 'hb-lib-tools'
 import { chalk } from 'hb-lib-tools/chalk'
 import { toString } from 'hb-lib-tools/OptionParser'
 
+import defaultPackageJson from '../package.json' with { type: 'json' }
+
 const EXIT_SIGNAL = 128
 
 /** Make text bold.
@@ -82,16 +84,16 @@ export abstract class CommandLineTool implements Logger {
     timestamp: false,
     mode: 'command'
   }
-  protected abstract _packageJson: jsonMap
+  private readonly _packageJson: jsonMap
   private _usage = ''
 
   /** Create a new instance of a command line utility.
     */
-  constructor (options: Partial<Options> = {}) {
+  constructor (packageJson?: jsonMap, options: Partial<Options> = {}) {
     // Set program name
     // argv[0]: node executable, argv[1]: javascript file
     this.name = process.argv[1] ?? ''
-    // Set logging options.
+    this._packageJson = packageJson ?? defaultPackageJson
     this.setOptions(options)
 
     process
@@ -384,14 +386,14 @@ export class CommandLineParser {
     return this.flag(shortKey, longKey, () => {
       this._tool.print(toString(helpText, { key: 'helpText', nonEmpty: true }))
       if (typeof this._packageJson.homepage == 'string') {
-        this._tool.print('See %s for more info.', this._packageJson.homepage.split('#')[0])
+        this._tool.print('\nSee %s for more info.', this._packageJson.homepage.split('#')[0])
       }
       if (typeof this._packageJson.name == 'string' && typeof this._packageJson.version == 'string') {
-        const recommendedVersion = recommendedNodeVersion(this._packageJson)
+        const recommendedVersion = recommendedNodeVersion(defaultPackageJson)
         const warning = (process.version.slice(1) === recommendedVersion)
           ? ''
           : `, recommended version: node v${recommendedVersion}`
-        this._tool.print(`${this._packageJson.name} v${this._packageJson.version}, node ${process.version}${warning})`)
+        this._tool.print(`(${this._packageJson.name} v${this._packageJson.version}, node ${process.version}${warning})`)
       }
       process.exit(0)
     })
