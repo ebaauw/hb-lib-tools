@@ -17,8 +17,6 @@ import { toHost, toInt, toPath } from 'hb-lib-tools/OptionParser'
 
 const IPV4: integer = 4
 const IPV6: integer = 6
-const HTTP_PORT: integer = 80
-const HTTPS_PORT: integer = 443
 const HTTP_STATUS_OK: integer = 200
 const TIMEOUT: integer = 5
 
@@ -227,7 +225,7 @@ export class HttpClient extends EventEmitter<Events> {
       maxSockets: options.maxSockets ?? Infinity,
       name: options.name ?? hostname,
       path: options.path ?? '/',
-      port: port ?? ((options.https ?? false) ? HTTPS_PORT : HTTP_PORT),
+      port,
       selfSignedCertificate: options.selfSignedCertificate ?? false,
       suffix: options.suffix ?? '',
       text: options.text ?? false,
@@ -296,7 +294,7 @@ export class HttpClient extends EventEmitter<Events> {
     const { hostname, port } = toHost(host, { key: 'host' })
     this.__options.host = host
     this.__options.hostname = hostname
-    this.__options.port = port ?? (this.__options.https ? HTTPS_PORT : HTTP_PORT)
+    this.__options.port = port
     this.#setUrl()
   }
 
