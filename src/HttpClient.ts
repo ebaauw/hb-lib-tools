@@ -40,10 +40,10 @@ export interface HttpRequest {
   jsonBody?: json,
   /** Request action (for SOAP requests). */
   action?: string,
+  /** Request body as XML (for SOAP requests). */
+  xmlBody?: json,
   /** Request URL. */
-  url: string,
-  /** Additional key/value pairs to include in the request info. */
-  info?: jsonMap
+  url: string
 }
 
 /** HTTP response information. */
@@ -224,7 +224,7 @@ export class HttpClient extends EventEmitter<Events> {
       logger: options.logger,
       maxSockets: options.maxSockets ?? Infinity,
       name: options.name ?? hostname,
-      path: options.path ?? '/',
+      path: options.path ?? '',
       port,
       selfSignedCertificate: options.selfSignedCertificate ?? false,
       suffix: options.suffix ?? '',
@@ -314,6 +314,9 @@ export class HttpClient extends EventEmitter<Events> {
   get path (): path { return this.__options.path }
   set path (path) {
     this.__options.path = toPath(path, { key: 'path' })
+    if (this.__options.path === '/') {
+      this.__options.path = ''
+    }
     this.#setUrl()
   }
 
@@ -386,8 +389,10 @@ export class HttpClient extends EventEmitter<Events> {
     headers?: Record<string, string>,
     /** Additional suffix to append after resource */
     suffix?: string,
-    /** Additional key/value pairs to include in the request info. */
-    info?: jsonMap
+    /** The SOAP action. */
+    action?: string,
+    /** The XML body for the SOAP request. */
+    xmlBody?: json
   } = {}): Promise<HttpResponse> {
     const method = params.method?.toUpperCase() ?? 'GET'
     if (!http.METHODS.includes(method)) {
@@ -404,7 +409,6 @@ export class HttpClient extends EventEmitter<Events> {
     }
     const headers = params.headers ?? {}
     const suffix = params.suffix ?? ''
-    const info = params.info ?? {}
 
     this.__requestId += 1
     const { __requestId: requestId } = this
@@ -420,8 +424,9 @@ export class HttpClient extends EventEmitter<Events> {
       rawBody,
       body,
       jsonBody,
-      url,
-      info
+      action: params.action,
+      xmlBody: params.xmlBody,
+      url
     }
     const responseListener = new ResponseListener()
     const request = this._http.request(url, options)
@@ -554,8 +559,13 @@ export class HttpClient extends EventEmitter<Events> {
     if (request.id !== this.__errorRequestId) {
       // eslint-disable-next-line @typescript-eslint/prefer-destructuring -- no
       this.__errorRequestId = error.request.id
-      const action = request.action ?? request.jsonBody ?? request.body
-      if (action == null) {
+      const body = request.jsonBody ?? request.body
+      if (request.action != null) {
+        this.log(
+          '%s: request %s: %s %s %s %j', this.name, request.id,
+          request.method, request.resource, request.action, request.xmlBody
+        )
+      } else if (body == null) {
         this.log(
           '%s: request %s: %s %s', this.name, request.id,
           request.method, request.resource
@@ -563,7 +573,7 @@ export class HttpClient extends EventEmitter<Events> {
       } else {
         this.log(
           '%s: request %s: %s %s %j', this.name, request.id,
-          request.method, request.resource, action
+          request.method, request.resource, body
         )
       }
     }
@@ -573,8 +583,13 @@ export class HttpClient extends EventEmitter<Events> {
   }
 
   #logRequest (request: HttpRequest): void {
-    const action = request.action ?? request.jsonBody ?? request.body
-    if (action == null) {
+    const body = request.jsonBody ?? request.body
+    if (request.action != null) {
+      this.debug(
+        '%s: request %s: %s %s %s %j', this.name, request.id,
+        request.method, request.resource, request.action, request.xmlBody
+      )
+    } else if (body == null) {
       this.debug(
         '%s: request %s: %s %s', this.name, request.id,
         request.method, request.resource
@@ -582,10 +597,9 @@ export class HttpClient extends EventEmitter<Events> {
     } else {
       this.debug(
         '%s: request %s: %s %s %j', this.name, request.id,
-        request.method, request.resource, action
+        request.method, request.resource, body
       )
     }
-    const body = request.jsonBody ?? request.body
     if (body == null) {
       this.vdebug(
         '%s: request %s: %s %s', this.name, request.id,
@@ -635,7 +649,7 @@ export class HttpClient extends EventEmitter<Events> {
       }
     } else {
       this.vdebug(
-        '%s: request %d: response: %j', this.name, response.request.id, response.body
+        '%s: request %d: response: %j', this.name, response.request.id, body
       )
     }
   }
