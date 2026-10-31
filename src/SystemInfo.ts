@@ -408,7 +408,7 @@ class SystemInfo {
   async getPiOsInfo (): Promise<PiOsInfo> {
     const bit = (await this.exec('getconf', 'LONG_BIT')).trim()
     const text = parseText(await this.readTextFile('/etc/os-release'))
-    for (const key of ['NAME', 'ID', 'PRETTY_NAMEx', 'VERSION_ID', 'VERSION_CODENAME']) {
+    for (const key of ['NAME', 'ID', 'PRETTY_NAME', 'VERSION_ID', 'VERSION_CODENAME']) {
       if (!(key in text)) {
         throw new Error(`/etc/os-release: ${key}: not found`)
       }
