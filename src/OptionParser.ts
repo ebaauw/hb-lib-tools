@@ -39,7 +39,7 @@ function newTypeError (message: string, options: { key?: string, userInput?: boo
   return (options.userInput ?? false) ? new UserInputError(m) : new TypeError(m)
 }
 
-const patterns = {
+export const patterns = {
   host: /^(?:\[(?<ipv6>.+)\]|(?<hostname>[^:]+))(?::(?<port>[0-9]{1,5}))?$/,
   hostname: /^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?)*$/,
   int: /^\s*(?:[+-]?)(?:[0-9]+(?:\.0*)?)\s*$/,
