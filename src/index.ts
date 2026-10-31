@@ -253,6 +253,9 @@ export function formatError (
   /** Use chalk to grey out the stack trace. */
   useChalk = false
 ): string {
+  if (error instanceof AggregateError && error.errors[0] instanceof Error) {
+    return formatError(error.errors[0], useChalk)
+  }
   if (isJavaScriptError(error) || isNodejsError(error)) {
     if (error.stack != null) {
       if (useChalk) {
