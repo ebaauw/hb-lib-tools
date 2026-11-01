@@ -16,7 +16,7 @@
   * --------------------------- | -----------
   * {@link HapTool! hap}         | Logger for HomeKit accessory announcements.
   * {@link JsonTool! json}       | JSON formatter.
-  * {@link SysinfoTool! sysinfo} | Print hardware and operating system information.
+  * {@link SysinfoTool! sysinfo} | Get hardware and operating system information.
   * {@link UpnpTool! upnp}       | Logger for UPnP device announcements.
   *
   * Each command-line tool takes a `-h` or `--help` argument to provide a brief overview
@@ -49,36 +49,6 @@
   * or, to load it lazily:
   * ```typescript
   * const { HttpClient } = await import('hb-lib-tools/HttpClient')
-  * ```
-  * 
-  * ### Utility Types and Interfaces
-  * This library provides a number of utility types and interfacesused by the utility classes and functions.
-  * Type / Interface  | Description
-  * ----------------- | -----------
-  * {@link integer}   | Integer number.
-  * {@link json}      | JSON value.
-  * {@link jsonMap}   | Map of string keys to JSON values.
-  * {@link Logger}    | Logger interface.
-  * 
-  * To use the types provided by this library, issue:
-  * ```typescript
-  * import type { json } from 'hb-lib-tools'
-  * ```
-  * 
-  * ### Utility Functions
-  * This library provides a number of utility functions used by the utility classes and command-line tools.
-  * Function                       | Description
-  * ------------------------------ | -----------
-  * {@link formatError}            | Convert Error to string.
-  * {@link isJson}                 | Guard for {@link json}.
-  * {@link isJsonMap}              | Guard for {@link jsonMap}.
-  * {@link recommendedNodeVersion} | Return the recommended version of NodeJS from package.json.
-  * {@link timeout}                | Resolve after given time, delaying execution.
-  * {@link toHexString}            | Convert {@link integer} or `Buffer` to hex string.
-  *
-  * To use the utility functions, issue:
-  * ```typescript
-  * import { isJson, isJsonMap } from 'hb-lib-tools'
   * ```
   * @module 
   */
