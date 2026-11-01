@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
-// json.js
+// upnp.js
 //
-// UPnP tool.
+// Logger for UPnP device announcements.
 // Copyright © 2018-2026 Erik Baauw. All rights reserved.
 
 import { UpnpTool } from 'hb-lib-tools/UpnpTool'
