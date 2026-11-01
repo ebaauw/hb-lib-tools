@@ -15,8 +15,8 @@ Tool      | Description
 --------- | -----------
 `hap`     | Logger for HomeKit accessory announcements.
 `json`    | JSON formatter.
-`sysinfo` | Print hardware and operating system information.
-`upnp`    | UPnP tool.
+`sysinfo` | Get hardware and operating system information.
+`upnp`    | Logger for UPnP device announcements.
 
 Each command-line tool takes a `-h` or `--help` argument to provide a brief overview of its functionality and command-line arguments.
 
