@@ -668,10 +668,10 @@ export type ValidationFunction = (value: unknown) => void
 
 /** Parser and validator for options and other parameters. */
 class OptionParser extends EventEmitter<Events> {
-  _object: Record<string, unknown>
-  _userInput: boolean
-  _callbacks: Record<string, (value: unknown) => void>
-  _enumValues: Record<string, Record<string, ((value: string) => void) | null>>
+  private _object: Record<string, unknown>
+  private readonly _userInput: boolean
+  private _callbacks: Record<string, (value: unknown) => void>
+  private _enumValues: Record<string, Record<string, ((value: string) => void) | null>>
 
   /** Creates a new OptionParser instance
     *
