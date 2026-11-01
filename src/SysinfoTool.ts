@@ -1,6 +1,6 @@
 // hb-lib-tools/src/SysinfoTool.ts
 //
-// Show system info.
+// Get hardware and operating system information.
 // Copyright © 2021-2026 Erik Baauw. All rights reserved.
 
 /** The `sysinfo` command line tool.
