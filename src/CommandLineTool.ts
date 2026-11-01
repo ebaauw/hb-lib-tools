@@ -9,7 +9,7 @@ import { format } from 'node:util'
 
 import { formatError, recommendedNodeVersion } from 'hb-lib-tools'
 import { chalk } from 'hb-lib-tools/chalk'
-import { toString } from 'hb-lib-tools/OptionParser'
+import { UserInputError, toString } from 'hb-lib-tools/OptionParser'
 
 import defaultPackageJson from '../package.json' with { type: 'json' }
 
@@ -89,7 +89,12 @@ export abstract class CommandLineTool implements Logger {
 
   /** Create a new instance of a command line utility.
     */
-  constructor (packageJson?: jsonMap, options: Partial<Options> = {}) {
+  constructor (
+    /** The contents of `package.json`.  Default: `package.json` of `hb-lib-tools`. */
+    packageJson?: jsonMap,
+    /** Command-line tool options. */
+    options: Partial<Options> = {}
+  ) {
     // Set program name
     // argv[0]: node executable, argv[1]: javascript file
     this.name = process.argv[1] ?? ''
@@ -270,7 +275,7 @@ export abstract class CommandLineTool implements Logger {
     if (args.length > 0) {
       let lastArg = args.pop()
       if (lastArg instanceof Error) {
-        if (lastArg instanceof UsageError) {
+        if (lastArg instanceof UsageError || lastArg instanceof UserInputError) {
           usage = true
         }
         lastArg = formatError(lastArg, this._options.chalk)
@@ -333,7 +338,7 @@ export class CommandLineParser {
 
   /** Create a new parser instance. */
   constructor (
-    /** The parent command-line tool,which will be used to set the debug level. */
+    /** The parent command-line tool, which will be used to set the debug level. */
     tool: CommandLineTool
   ) {
     const { packageJson } = tool
