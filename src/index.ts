@@ -12,8 +12,8 @@
   * ### Command-Line Tools
   * This library comes with a number of command-line tools for troubleshooting Homebridge installations.
   *
-  * Tool                        | Description
-  * --------------------------- | -----------
+  * Tool                         | Description
+  * ---------------------------- | -----------
   * {@link HapTool! hap}         | Logger for HomeKit accessory announcements.
   * {@link JsonTool! json}       | JSON formatter.
   * {@link SysinfoTool! sysinfo} | Get hardware and operating system information.
