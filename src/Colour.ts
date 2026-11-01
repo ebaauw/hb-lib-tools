@@ -145,6 +145,11 @@ export type rgbString = string & {}
 
 const rgbStringPattern = /^#(?<rr>[0-9a-fA-F]{2})(?<gg>[0-9a-fA-F]{2})(?<bb>[0-9a-fA-F]{2})$/
 
+/** Guard for {@link rgbString}. */
+export function isRgbString (s: string): s is rgbString {
+  return rgbStringPattern.test(s)
+}
+
 /** Convert {@link Colour!rgbString rgbString} to {@link rgb}.
   * @param s - The RGB colour as string.
   * @return The corresponding rgb
