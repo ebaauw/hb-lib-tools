@@ -60,7 +60,7 @@ class SysinfoTool extends CommandLineTool {
       this.systemInfo = new SystemInfo({ logger: this })
       await this.systemInfo.init()
       if (this.json) {
-        const jsonFormatter = new JsonFormatter({ noWhiteSpace: false })
+        const jsonFormatter = new JsonFormatter({ sortKeys: true })
         this.print(jsonFormatter.stringify({
           hardware: this.systemInfo.hwInfo,
           os: this.systemInfo.osInfo
