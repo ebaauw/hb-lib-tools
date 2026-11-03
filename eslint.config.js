@@ -49,7 +49,7 @@ export default defineConfig(
       semi: ['error', 'never'],
       '@typescript-eslint/init-declarations': 'off',
       '@typescript-eslint/no-magic-numbers': ['warn', {
-        ignore: [-1, 0, 1, 2, 8, 10, 16, 0xFF, 1000, 0xFFFF], ignoreArrayIndexes: true, ignoreDefaultValues: true
+        ignore: [-1, 0, 1, 2, 8, 10, 16, 0xFF, 1000, 1024, 0xFFFF], ignoreArrayIndexes: true, ignoreDefaultValues: true
       }],
       '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],
       '@typescript-eslint/no-use-before-define': ['error', { classes: true, enums: true }],
