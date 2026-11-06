@@ -3,11 +3,11 @@
 // Library for Homebridge plugins.
 // Copyright © 2019-2026 Erik Baauw. All rights reserved.
 
-import type { Logger, jsonMap } from 'hb-lib-tools'
+import type { Logger } from 'hb-lib-tools'
 
 import { exec, execFile } from 'node:child_process'
 import { access, readFile } from 'node:fs/promises'
-import { cpus } from 'node:os'
+import os from 'node:os'
 import { promisify } from 'node:util'
 
 import type { integer } from 'hb-lib-tools'
@@ -17,91 +17,115 @@ import { semver } from 'hb-lib-tools/semver'
 const execAsync = promisify(exec) // eslint-disable-line @typescript-eslint/strict-void-return -- no
 const execFileAsync = promisify(execFile) // eslint-disable-line @typescript-eslint/strict-void-return -- no
 
+/** Hardware information from NodeJS. */
 export interface DefaultHwInfo {
-  _kind: 'default',
-  arch: string,
+  /** CPU architecture. */
+  arch: NodeJS.Architecture,
+  /** CPU model. */
   cpu: string,
+  /** Memory. */
+  memory: string,
+  /** Model. */
+  model: string,
+  /** Number of CPU cores. */
   nCores: integer,
+  /** Pretty name of the hardware. */
   prettyName: string,
-  processor: string,
+  /** CPU speed (in MHz). */
   speed: number
 }
 
-export interface MacInfo {
+export interface MacHwInfo extends DefaultHwInfo {
   _kind: 'mac',
-  id: string, // e.g. 'XXXXXXXXXX'
-  memory: string, // e.g. '16 GB'
-  model: string, // e.g. 'MacBook Pro'
-  nCores: string, // e.g. '10 (4 Super and 6 Efficiency)'
-  prettyName: string, // e.g. 'MacBook Pro (16 GB, Apple M5)'
-  processor: string, // e.g. 'Apple M5'
-  revision: string // e.g. 'Mac17,2'
+  /** Serial number. */
+  id: string,
+  /** Manufacturer. */
+  manufacturer: string,
+  /** Model, e.g. 'MacBook Pro'. */
+  model: string,
+  /** Revision, e.g. 'Mac17,2. */
+  revision: string
 }
 
-export interface RpiInfo {
-  _kind: 'rpi',
+export interface RpiRevision {
+  /** CPU Model. */
+  cpu: string,
+  /** Bitmap of usable GPIO pins. */
   gpioMask: number,
-  id: string | null,
-  // isRpi: boolean,
+  /** Manufacturer. */
   manufacturer: string,
+  /** Memory. */
   memory: string,
+  /** Model. */
   model: string,
+  /** Model revision. */
   modelRevision: string,
+  /** Pretty name of the hardware. */
   prettyName: string,
-  processor: string,
-  revision: string
+  /** Revision. */
+  revision: string,
+  /** Whether the hardware supports controlling the system fan. */
   supportsFan: boolean,
+  /** Whether the hardware supports controlling the power LED. */
   supportsPowerLed: boolean,
+  /** Whether the hardware supports controlling the power to the USB ports. */
   supportsUsbPower: boolean
 }
 
-export interface SynoInfo {
-  _kind: 'syno',
-  model: string,
-  cpu: string,
-  nCores: number,
-  memory: string,
-  processor: string,
-  prettyName: string
+export interface RpiHwInfo extends DefaultHwInfo, RpiRevision {
+  _kind: 'rpi',
+  /** Serial number. */
+  id: string
 }
 
-export type HwInfo = DefaultHwInfo | MacInfo | RpiInfo | SynoInfo
+export interface SynoHwInfo extends DefaultHwInfo {
+  _kind: 'syno',
+  /** Serial number. */
+  id: string,
+  /** Manufacturer. */
+  manufacturer: string
+}
+
+export type HwInfo = DefaultHwInfo | MacHwInfo | RpiHwInfo | SynoHwInfo
 
 export interface DefaultOsInfo {
-  _kind: 'default',
   name: string,
   platform: string,
-  prettyName: string
+  prettyName: string,
+  version: string
 }
 
-export interface MacOsInfo {
+export interface MacOsInfo extends DefaultOsInfo {
   _kind: 'mac',
-  name: string, // e.g. 'macOS'
-  platform: string, // e.g. 'darwin'
-  prettyName: string, // e.g. 'macOS 13.4 (Ventura)'
-  version: string, // e.g. '13.4'
+  build: string, // e.g. '22F66'
+  catalina: boolean,
+  // name: string, // e.g. 'macOS'
+  // platform: string, // e.g. 'darwin'
+  // prettyName: string, // e.g. 'macOS 13.4 (Ventura)'
+  // version: string, // e.g. '13.4'
   versionName: string // e.g. 'Ventura'
 }
 
-export interface PiOsInfo {
+export interface PiOsInfo extends DefaultOsInfo {
   _kind: 'rpi',
-  name: string, // e.g. 'Raspbian GNU/Linux'
-  platform: string, // e.g. 'raspbian'
-  prettyName: string, // e.g. 'Raspbian GNU/Linux 11 (bullseye)'
-  version: string, // e.g. '11'
+  // name: string, // e.g. 'Raspbian GNU/Linux'
+  // platform: string, // e.g. 'raspbian'
+  // prettyName: string, // e.g. 'Raspbian GNU/Linux 11 (bullseye)'
+  // version: string, // e.g. '11'
   versionName: string // e.g. 'bullseye'
 }
 
-export interface DsmInfo {
+export interface SynoOsInfo extends DefaultOsInfo {
   _kind: 'syno',
-  name: string,
-  platform: string, // e.g. 'synology'
-  prettyName: string, // e.g. 'DiskStation Manager 7.1.3-42661'
-  version: string, // e.g. '7.1.3'
-  versionName: string // e.g. '42661'
+  build: string, // e.g. '42661'
+  // name: string,
+  // platform: string, // e.g. 'synology'
+  // prettyName: string, // e.g. 'DiskStation Manager 7.1.3-42661'
+  update: string,
+  // version: string // e.g. '7.1.3'
 }
 
-export type OsInfo = DefaultOsInfo | MacOsInfo | PiOsInfo | DsmInfo
+export type OsInfo = DefaultOsInfo | MacOsInfo | PiOsInfo | SynoOsInfo
 
 /** Parse a text into key/value pairs.
   * @param text - The text.
@@ -226,7 +250,7 @@ const rpiOldRevisions: Record<number, { model: string, revision: string, memory:
   * @param revision - The Raspberry Pi hardware revision.
   * @return The parsed revision information.
   */
-export function parseRpiRevision (revision: integer): RpiInfo {
+export function parseRpiRevision (revision: integer): RpiRevision {
   /* eslint-disable @typescript-eslint/no-magic-numbers -- decode RPi revision */
 
   function gpioMask(model: string, revision: integer): integer {
@@ -246,15 +270,13 @@ export function parseRpiRevision (revision: integer): RpiInfo {
   if ((rev & 0x00800000) === 0) {
     const r = rpiOldRevisions[rev] ?? { model: '(unknown)', revision: '(unknown)', memory: '(unknown)', manufacturer: '(unknown)', led: false, usb: false }
     return {
-      _kind: 'rpi',
+      cpu: rpiProcessors[0],
       gpioMask: gpioMask(r.model, rev),
-      id: null,
       manufacturer: r.manufacturer,
       memory: r.memory,
       model: r.model,
       modelRevision: r.revision,
       prettyName: `Raspberry Pi ${r.model} ${r.revision} '(${r.memory})'`,
-      processor: rpiProcessors[0],
       revision: toHexString(rev, { length: 6 }),
       supportsPowerLed: r.led ?? false,
       supportsUsbPower: r.usb ?? false,
@@ -266,16 +288,14 @@ export function parseRpiRevision (revision: integer): RpiInfo {
   const memoryId = (rev & 0x00700000) >> 20
   const processorId = (rev & 0x0000F000) >> 12
   const model = rpiModels[modelId] ?? { name: `model ${modelId}`, led: false, usb: false, fan: false }
-  const response: RpiInfo = {
-    _kind: 'rpi',
+  const response: RpiRevision = {
+    cpu: rpiProcessors[processorId] ?? `(unknown ${processorId})`,
     gpioMask: gpioMask(model.name, rev),
-    id: null,
     manufacturer: rpiManufacturers[manufacturerId] ?? `(unknown ${manufacturerId})`,
     memory: rpiMemorySizes[memoryId] ?? `(unknown ${memoryId})`,
     model: model.name,
     modelRevision: `1.${((rev & 0x0000000F) >> 0).toString()}`,
     prettyName: '',
-    processor: rpiProcessors[processorId] ?? `(unknown ${processorId})`,
     revision: toHexString(rev, { length: 6 }),
     supportsFan: model.fan ?? false,
     supportsPowerLed: model.led ?? false,
@@ -291,7 +311,7 @@ export function parseRpiRevision (revision: integer): RpiInfo {
   * @param cpuInfo - The contents of `/proc/cpuinfo`.
   * @return The extracted info.
   */
-export function parseRpiCpuInfo (cpuInfo: string): RpiInfo {
+export function parseRpiCpuInfo (cpuInfo: string): { id: string } & RpiRevision {
   let a = /Revision\s*: (?<rev>[0-9a-f]{4,})/.exec(cpuInfo)
   if (a?.groups == null) {
     throw new Error('/proc/cpuinfo: Revision: not found')
@@ -303,8 +323,17 @@ export function parseRpiCpuInfo (cpuInfo: string): RpiInfo {
   if (a?.groups == null) {
     throw new Error('/proc/cpuinfo: Serial: not found')
   }
-  rpiInfo.id = a.groups.id.toUpperCase()
-  return rpiInfo
+  const id = a.groups.id.toUpperCase()
+  return { id, ...rpiInfo }
+}
+
+function formatMemory (mem: number): string {
+  if (mem < 1024 * 1024) {
+    return `${Math.round(mem * 10 / 1024) / 10}KB`
+  } else if (mem < 1024 * 1024 * 1024) {
+    return `${Math.round(mem * 10 / 1024 / 1024) / 10}MB`
+  }
+  return `${Math.round(mem * 10 / 1024 / 1024 / 1024) / 10}GB`
 }
 
 /** System information. */
@@ -312,7 +341,9 @@ class SystemInfo {
   options: {
     logger?: Logger
   }
+  /** Hardware information.  */
   hwInfo: HwInfo
+  /** Operating system information. */
   osInfo: OsInfo
 
   /** Creates a new instance of SystemInfo.
@@ -326,19 +357,19 @@ class SystemInfo {
       logger: params.logger
     }
     this.osInfo = {
-      _kind: 'default',
-      name: process.platform,
+      name: os.type(),
       platform: process.platform,
-      prettyName: process.platform
+      prettyName: os.version(),
+      version: os.release()
     }
     this.hwInfo = {
-      _kind: 'default',
       arch: process.arch,
-      cpu: cpus()[0].model,
-      nCores: cpus().length,
+      cpu: (os.cpus()[0]?.model) ?? 'unknown',
+      memory: formatMemory(os.totalmem()),
+      model: os.machine(),
+      nCores: os.cpus().length,
       prettyName: process.arch,
-      processor: process.arch,
-      speed: cpus()[0].speed
+      speed: os.cpus()[0]?.speed ?? 0
     }
   }
 
@@ -365,28 +396,28 @@ class SystemInfo {
       case 'linux':
         if (await this.existsFile('/etc/synoinfo.conf')) {
           try {
-            this.hwInfo = { ...this.hwInfo, ...await this.getSynoInfo() }
+            this.hwInfo = await this.getSynoInfo()
           } catch (error) { this.warn(error) }
           try {
-            this.osInfo = { ...this.osInfo, ...await this.getDsmInfo() }
+            this.osInfo = await this.getDsmInfo()
           } catch (error) { this.warn(error) }
         } else {
           if (['arm', 'arm64'].includes(process.arch)) {
             try {
-              this.hwInfo = { ...this.hwInfo, ...await this.getRpiInfo() }
+              this.hwInfo = await this.getRpiInfo()
             } catch (error) { this.warn(error) }
           }
           try {
-            this.osInfo = { ...this.osInfo, ...await this.getPiOsInfo() }
+            this.osInfo = await this.getPiOsInfo()
           } catch (error) { this.warn(error) }
         }
         break
       case 'darwin':
         try {
-          this.hwInfo = { ...this.hwInfo, ...await this.getMacInfo() }
+          this.hwInfo = await this.getMacInfo()
         } catch (error) { this.warn(error) }
         try {
-          this.osInfo = { ...this.osInfo, ...await this.getMacOsInfo() }
+          this.osInfo = await this.getMacOsInfo()
         } catch (error) { this.warn(error) }
         break
       default:
@@ -397,9 +428,9 @@ class SystemInfo {
   /** Extract serial number and hardware revision info from `/proc/cpuinfo`.
     * @return The extracted info.
     */
-  async getRpiInfo (): Promise<RpiInfo> {
+  async getRpiInfo (): Promise<RpiHwInfo> {
     const cpuInfo = await this.readTextFile('/proc/cpuinfo')
-    return parseRpiCpuInfo(cpuInfo)
+    return { ...this.hwInfo, ...parseRpiCpuInfo(cpuInfo), _kind: 'rpi' }
   }
 
   /** Extract OS info from /etc/os-release.
@@ -414,6 +445,7 @@ class SystemInfo {
       }
     }
     return {
+      ...this.osInfo,
       _kind: 'rpi',
       name: text.NAME, // e.g. 'Raspbian GNU/Linux'
       platform: text.ID, // e.g. 'raspbian'
@@ -426,19 +458,19 @@ class SystemInfo {
   /** Extract Apple Mac hardware info from `system_profiler` command.
     * @return The extracted info.
     */
-  async getMacInfo (): Promise<jsonMap> {
+  async getMacInfo (): Promise<MacHwInfo> {
     const text = parseText(await this.exec('system_profiler', 'SPHardwareDataType'), ': ')
     for (const key of ['Serial Number (system)', 'Model Name', 'Memory', 'Total Number of Cores', 'Model Identifier']) {
       if (!(key in text)) {
         throw new Error(`/etc/synoinfo.conf: ${key}: not found`)
       }
     }
-    /* eslint-disable @typescript-eslint/prefer-destructuring -- sic */
-    let processor = this.hwInfo.processor
+    /* eslint-disable @typescript-eslint/prefer-destructuring -- no */
+    let cpu = this.hwInfo.cpu
     if ('Chip' in text) {
-      processor = text.Chip
+      cpu = text.Chip
     } else if ('Processor Name' in text) {
-      processor = text['Processor Name']
+      cpu = text['Processor Name']
     }
     /* eslint-enable @typescript-eslint/prefer-destructuring */
     const { 'Serial Number (system)': id } = text
@@ -468,15 +500,15 @@ class SystemInfo {
       }
     } catch (error) { this.warn(error) }
     return {
+      ...this.hwInfo,
       _kind: 'mac',
+      cpu,
       id,
-      isMac: true,
       manufacturer: 'Apple Inc.',
       memory: text.Memory,
       model: text['Model Name'],
-      nCores: text['Total Number of Cores'].split(' ')[0],
+      nCores: parseInt(text['Total Number of Cores'].split(' ')[0], 10),
       prettyName,
-      processor,
       revision: text['Model Identifier']
     }
   }
@@ -484,7 +516,7 @@ class SystemInfo {
   /** Extract macOS info from `sw_vers` command.
     * @return The extracted info.
     */
-  async getMacOsInfo (): Promise<jsonMap> {
+  async getMacOsInfo (): Promise<MacOsInfo> {
     const text = parseText(await this.exec('sw_vers'), ':')
     let { ProductVersion: version } = text
     const ver = semver.coerce(version)
@@ -495,6 +527,7 @@ class SystemInfo {
     }
     const versionName = macOsVersions[v] ?? `(unknown ${v})`// e.g. 'Monterey'
     return {
+      ...this.osInfo,
       _kind: 'mac',
       build: text.BuildVersion,
       catalina: semver.gte(version, '10.15.0'),
@@ -509,7 +542,7 @@ class SystemInfo {
   /** Extract Synology info from `/etc/synoinfo.conf`
     * @return The extracted info.
     */
-  async getSynoInfo (): Promise<jsonMap> {
+  async getSynoInfo (): Promise<SynoHwInfo> {
     const text = parseText(await this.readTextFile('/etc/synoinfo.conf'))
     for (const key of ['upnpdevicetype', 'pushservice_dsserial', 'upnpmodelname']) {
       if (!(key in text)) {
@@ -518,6 +551,8 @@ class SystemInfo {
     }
     const { upnpdevicetype: device, pushservice_dsserial: id, upnpmodelname: model } = text
     return {
+      ...this.hwInfo,
+      _kind: 'syno',
       id,
       manufacturer: 'Synology',
       model: `${device} ${model}`,
@@ -528,7 +563,7 @@ class SystemInfo {
   /** Extract DSM info from `/etc/VERSION`.
     * @return The extracted info.
     */
-  async getDsmInfo (): Promise<jsonMap> {
+  async getDsmInfo (): Promise<SynoOsInfo> {
     const text = parseText(await this.readTextFile('/etc/VERSION'))
     for (const key of ['buildnumber', 'productversion', 'smallfixnumber']) {
       if (!(key in text)) {
@@ -538,6 +573,8 @@ class SystemInfo {
     const { buildnumber: build, productversion: version, smallfixnumber: update } = text
     const prettyName = `DSM ${version}-${build} Update ${update}`
     return {
+      ...this.osInfo,
+      _kind: 'syno',
       build,
       prettyName,
       update,
